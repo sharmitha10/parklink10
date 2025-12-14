@@ -1,0 +1,52 @@
+{
+  "app": {
+    "title": "Parking Management System",
+    "description": "Manage your parking spaces efficiently"
+  },
+  "common": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Operation successful"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?"
+  },
+  "parking": {
+    "available": "Available",
+    "occupied": "Occupied",
+    "reserved": "Reserved",
+    "selectSpot": "Select a parking spot",
+    "bookNow": "Book Now",
+    "bookingSuccess": "Booking successful",
+    "bookingFailed": "Booking failed"
+  },
+  "booking": {
+    "myBookings": "My Bookings",
+    "noBookings": "No bookings found",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "status": "Status",
+    "paymentStatus": "Payment Status",
+    "amount": "Amount"
+  },
+  "payment": {
+    "payNow": "Pay Now",
+    "paymentSuccessful": "Payment Successful",
+    "paymentFailed": "Payment Failed",
+    "processing": "Processing Payment...",
+    "amountDue": "Amount Due"
+  }
+}
