@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link,useNavigate } from 'react-router-dom';
 import { adminAPI, parkingAPI } from '../utils/api';
 import { Users, MapPin, Calendar, DollarSign, TrendingUp, PlusCircle } from 'lucide-react';
 import './Dashboard.css';
 import { useAutoTranslate } from '../components/LanguageSwitcher';
+import SlotBookingsModal from '../components/SlotBookingsModal';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -14,6 +15,9 @@ const AdminDashboard = () => {
   });
   const [mySlots, setMySlots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); 
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [showBookings, setShowBookings] = useState(false);
 
   const { tAsync, tSync, currentLanguage } = useAutoTranslate();
   const [t, setT] = useState({
@@ -65,7 +69,7 @@ const AdminDashboard = () => {
     }
     
     return () => { mounted = false; };
-  }, [currentLanguage]);
+  }, [currentLanguage, t, tAsync]);
 
   const fetchDashboardData = async () => {
     try {
@@ -76,6 +80,7 @@ const AdminDashboard = () => {
 
       setStats(statsResponse.data);
       setMySlots(slotsResponse.data.slice(0, 5)); // Show first 5 slots
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -97,6 +102,10 @@ const AdminDashboard = () => {
     return ((occupiedSlots / totalSlots) * 100).toFixed(1);
   };
 
+  const handleSlotClick = (slot) => {
+  setSelectedSlot(slot);
+  setShowBookings(true);
+  };
   if (loading) {
     return (
       <div className="loading">
@@ -210,7 +219,10 @@ const AdminDashboard = () => {
           ) : (
             <div className="slots-grid">
               {mySlots.map((slot) => (
-                <div key={slot._id} className="slot-card">
+                <div key={slot._id} className="slot-card"
+                 onClick={() => handleSlotClick(slot)}
+                 style={{ cursor: 'pointer' }}
+                 >
                   <div className="slot-header">
                     <h3>{slot.name}</h3>
                     <span
@@ -245,25 +257,38 @@ const AdminDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="dashboard-section">
-          <div className="section-header">
-            <h2>{t.quickActions}</h2>
-          </div>
-          <div className="action-grid">
-            <Link to="/admin/manage-slots" className="action-card">
-              <MapPin size={32} />
-              <h3>{t.manageSlots}</h3>
-              <p>{t.manageSlotsDesc}</p>
-            </Link>
-            <Link to="/admin/dashboard" className="action-card">
-              <TrendingUp size={32} />
-              <h3>{t.viewAnalytics}</h3>
-              <p>{t.checkRevenue}</p>
-            </Link>
-          </div>
-        </div>
+<div className="dashboard-section">
+  <div className="section-header">
+    <h2>{t.quickActions || 'Quick Actions'}</h2>
+  </div>
+  <div className="action-grid">
+    <button 
+      className="action-card"
+      onClick={() => navigate('/admin/analytics')}
+    >
+      <div className="action-icon">
+        <TrendingUp size={24} />
       </div>
-    </div>
+      <h3>{t.viewAnalytics || 'View Analytics'}</h3>
+      <p>{t.checkRevenue || 'Check revenue and occupancy'}</p>
+    </button>
+
+    <Link to="/admin/manage-slots" className="action-card">
+      <div className="action-icon">
+        <MapPin size={24} />
+      </div>
+      <h3>{t.manageSlots || 'Manage Slots'}</h3>
+      <p>{t.manageSlotsDesc || 'Manage your parking slots'}</p>
+    </Link>
+  </div>
+</div>
+<SlotBookingsModal
+      slot={selectedSlot}
+      show={showBookings}
+      onClose={() => setShowBookings(false)}
+    />
+</div>
+</div>
   );
 };
 

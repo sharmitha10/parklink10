@@ -14,6 +14,7 @@ import FindParking from './pages/FindParking';
 import MyBookings from './pages/MyBookings';
 import ManageSlots from './pages/ManageSlots';
 import AddParkingSlot from './pages/AddParkingSlot';
+import Analytics from './pages/Analytics';
 
 // Components
 import PrivateRoute from './components/PrivateRoute';
@@ -75,6 +76,11 @@ function AppContent() {
               <AddParkingSlot />
             </AdminRoute>
           } />
+          <Route path="/admin/analytics" element={
+            <AdminRoute>
+              <Analytics/>
+            </AdminRoute>
+          }/>
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

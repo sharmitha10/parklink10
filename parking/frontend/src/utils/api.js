@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+// const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: 'http://localhost:5000/api',
 });
 
 // Add token to requests
@@ -58,6 +58,15 @@ export const bookingAPI = {
   getById: (id) => api.get(`/bookings/${id}`),
   cancel: (id) => api.put(`/bookings/${id}/cancel`),
   complete: (id) => api.put(`/bookings/${id}/complete`),
+  getAnalytics: async (params = {}) => {
+    try {
+      const response = await api.get('/api/bookings/analytics', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      throw error;
+    }
+  }
 };
 
 // Admin API
@@ -65,6 +74,7 @@ export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: () => api.get('/admin/users'),
   getBookings: () => api.get('/admin/bookings'),
+  getSlotBookings: (slotId) => api.get(`/admin/slots/${slotId}/bookings`),
 };
 
 // User API

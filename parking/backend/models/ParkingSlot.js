@@ -60,6 +60,37 @@ const parkingSlotSchema = new mongoose.Schema({
       default: '23:59'
     }
   },
+  // ... existing code ...
+  operatingHours: {
+    open: {
+      type: String,
+      default: '00:00'
+    },
+    close: {
+      type: String,
+      default: '23:59'
+    }
+  },
+  // Add this new section for slot dimensions
+  slotDimensions: {
+    length: { 
+      type: Number, 
+      required: true,
+      min: 0,
+      default: 18  // Default to standard car size in feet
+    },
+    width: { 
+      type: Number, 
+      required: true,
+      min: 0,
+      default: 9   // Default to standard car size in feet
+    },
+    height: { 
+      type: Number, 
+      min: 0,
+      default: 0   // 0 means no height restriction
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

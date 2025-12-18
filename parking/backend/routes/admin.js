@@ -8,6 +8,20 @@ const Booking = require('../models/Booking');
 // @route   GET /api/admin/dashboard
 // @desc    Get admin dashboard statistics
 // @access  Private (Admin only)
+router.get('/slots/:slotId/bookings', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { slotId } = req.params;
+    
+    const bookings = await Booking.find({ parkingSlot: slotId })
+      .populate('user', 'name email phone')
+      .populate('parkingSlot', 'name address')
+      .sort({ startTime: -1 });
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 router.get('/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: 'user' });

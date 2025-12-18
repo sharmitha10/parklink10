@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5002'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -45,6 +45,11 @@ app.use('/api/bookings', require('./routes/bookings'));
 // Health check
 app.get('/', (req, res) => {
   res.json({ message: 'Parking Management API is running' });
+});
+
+// New health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Error handling middleware

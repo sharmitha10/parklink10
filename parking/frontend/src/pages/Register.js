@@ -44,19 +44,19 @@ const Register = () => {
     backToHome: tSync('Back to Home')
   });
 
-  useEffect(() => {
-    let mounted = true;
-    const translateAll = async () => {
-      const keys = Object.keys(t);
-      const translations = {};
-      for (const k of keys) {
-        translations[k] = await tAsync(t[k]);
-      }
-      if (mounted) setT(translations);
-    };
-    if (currentLanguage !== 'en') translateAll();
-    return () => { mounted = false; };
-  }, [currentLanguage]);
+ useEffect(() => {
+  let mounted = true;
+  const translateAll = async () => {
+    const keys = Object.keys(t);
+    const translations = {};
+    for (const k of keys) {
+      translations[k] = await tAsync(t[k]);
+    }
+    if (mounted) setT(translations);
+  };
+  if (currentLanguage !== 'en') translateAll();
+  return () => { mounted = false; };
+}, [currentLanguage, t, tAsync]);
 
   const handleChange = (e) => {
     setFormData({

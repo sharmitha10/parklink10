@@ -45,8 +45,22 @@ const MyBookings = () => {
   }, [currentLanguage]);
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+  const loadBookings = async () => {
+    try {
+      const response = await bookingAPI.getMyBookings();
+      const filteredBookings = response.data.filter(booking => {
+        if (filter === 'all') return true;
+        return booking.status === filter;
+      });
+      setBookings(filteredBookings);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  loadBookings();
+}, [filter]);
 
   const fetchBookings = async () => {
     try {

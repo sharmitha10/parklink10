@@ -7,6 +7,38 @@ const ParkingSlot = require('../models/ParkingSlot');
 // @route   POST /api/bookings
 // @desc    Create a new booking
 // @access  Private
+router.get('/my', authMiddleware, async (req, res) => {
+  try {
+    console.log('User ID from token:', req.user.userId); // Add this line
+    const bookings = await Booking.find({ user: req.user.userId })
+      .populate('parkingSlot', 'name address location pricePerHour')
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 });
+    
+    console.log('Found bookings:', bookings.length); // Add this line
+    res.json(bookings);
+  } catch (err) {
+    console.error('Error fetching bookings:', err);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  }
+});
+// Test route to get all bookings (temporary)
+router.get('/test/all', async (req, res) => {
+  try {
+    const allBookings = await Booking.find({})
+      .populate('parkingSlot user')
+      .sort({ createdAt: -1 });
+    console.log('All bookings in DB:', allBookings.length);
+    res.json(allBookings);
+  } catch (err) {
+    console.error('Error fetching all bookings:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const {

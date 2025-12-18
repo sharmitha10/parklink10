@@ -1,65 +1,190 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { parkingAPI } from '../utils/api';
-import { MapPin, X, Check, AlertCircle } from 'lucide-react';
+import { useParams } from 'react-router-dom';  // Removed useNavigate since it's not used
+import { parkingAPI } from '../utils/api';     // Import the parkingAPI object
 import './AddParkingSlot.css';
 
-const AddParkingSlot = () => {
-  const navigate = useNavigate();
+const AddParkingSlot = ({ onSuccess, onClose, isEditMode = false }) => {
   const { id } = useParams();
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     latitude: '',
     longitude: '',
-    totalSlots: 10,
+    totalSlots: 1,
     pricePerHour: 50,
     amenities: {
       cctv: false,
-      security: false,
-      covered: false,
-      evCharging: false
+    security: false,
+    covered: false,
+    evCharging: false,
+    wheelchairAccess: false,
+    lighting: false,
+    restroom: false,
+    washArea: false,
+    },
+    slotDimensions: {
+      length: 18,  // Default to standard car size
+      width: 9,    // in feet
+      height: 0    // 0 means no height restriction
     }
   });
+
+  // Vehicle type presets
+  const VEHICLE_PRESETS = [
+    { name: 'Motorcycle', dimensions: { length: 8, width: 4, height: 0 } },
+    { name: 'Compact Car', dimensions: { length: 16, width: 8, height: 0 } },
+    { name: 'Standard Car', dimensions: { length: 18, width: 9, height: 0 } },
+    { name: 'Large Vehicle', dimensions: { length: 20, width: 10, height: 0 } },
+    { name: 'Truck/Bus', dimensions: { length: 40, width: 12, height: 0 } },
+    { name: 'Custom', dimensions: { length: 0, width: 0, height: 0 } }
+  ];
+
+  const FACILITIES = [
+  { id: 'cctv', label: 'CCTV' },
+  { id: 'security', label: '24/7 Security' },
+  { id: 'covered', label: 'Covered Parking' },
+  { id: 'evCharging', label: 'EV Charging' },
+  { id: 'wheelchairAccess', label: 'Wheelchair Access' },
+  { id: 'lighting', label: '24/7 Lighting' },
+  { id: 'restroom', label: 'Restroom' },
+  { id: 'washArea', label: 'Car Wash Area' }
+];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [locationError, setLocationError] = useState('');
-  const isEditMode = Boolean(id);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchSlotDetails = async () => {
-      if (!isEditMode) {
-        setLoading(false);
-        return; // No need to fetch for new slot
+  // Handle vehicle type selection
+  const handleVehicleTypeChange = (e) => {
+    const selectedType = VEHICLE_PRESETS.find(preset => preset.name === e.target.value);
+    if (selectedType) {
+      setFormData(prev => ({
+        ...prev,
+        slotDimensions: {
+          ...prev.slotDimensions,
+          ...selectedType.dimensions
+        }
+      }));
+    }
+  };
+
+  const getCurrentLocation = () => {
+  setIsLocationLoading(true);
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }));
+        setIsLocationLoading(false);
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        setError('Failed to retrieve current location. Please enter manually.');
+        setIsLocationLoading(false);
       }
+    );
+  } else {
+    setError('Geolocation is not supported by your browser');
+    setIsLocationLoading(false);
+  }
+};
 
-      try {
-        setLoading(true);
-        const response = await parkingAPI.getById(id);
-        const slot = response.data;
-        
-        // Check if location exists and has coordinates
-        const latitude = slot.location?.coordinates?.[1] || '';
-        const longitude = slot.location?.coordinates?.[0] || '';
-        
+  // Handle form input changes
+  const handleChange = (e) => {
+  const { name, value, type, checked } = e.target;
+  
+  if (FACILITIES.some(f => f.id === name)) {
+    setFormData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        [name]: checked
+      }
+    }));
+  } else if (name in formData) {
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'number' ? parseFloat(value) : value
+    }));
+  }
+};
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const slotData = {
+        name: formData.name,
+        address: formData.address,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        totalSlots: formData.totalSlots,
+        pricePerHour: formData.pricePerHour,
+        amenities: formData.amenities,
+        slotDimensions: {
+          length: parseFloat(formData.slotDimensions.length) || 0,
+          width: parseFloat(formData.slotDimensions.width) || 0,
+          height: parseFloat(formData.slotDimensions.height) || 0
+        }
+      };
+
+      if (isEditMode) {
+        await parkingAPI.update(id, slotData);
+        onSuccess('Parking slot updated successfully');
+      } else {
+        await parkingAPI.create(slotData);
+        onSuccess('Parking slot created successfully');
+        // Reset form after successful submission
         setFormData({
-          name: slot.name || '',
-          address: slot.address || '',
-          latitude: latitude,
-          longitude: longitude,
-          totalSlots: slot.totalSlots || 10,
-          pricePerHour: slot.pricePerHour || 50,
+          name: '',
+          address: '',
+          latitude: '',
+          longitude: '',
+          totalSlots: 1,
+          pricePerHour: 50,
           amenities: {
-            cctv: slot.amenities?.cctv || false,
-            security: slot.amenities?.security || false,
-            covered: slot.amenities?.covered || false,
-            evCharging: slot.amenities?.evCharging || false
+            cctv: false,
+            security: false,
+            covered: false,
+            evCharging: false
+          },
+          slotDimensions: {
+            length: 18,
+            width: 9,
+            height: 0
           }
         });
+      }
+      onClose();
+    } catch (error) {
+      console.error('Error saving parking slot:', error);
+      setError(error.response?.data?.message || 'Failed to save parking slot');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch slot details when in edit mode
+  useEffect(() => {
+    const fetchSlotDetails = async () => {
+      if (!isEditMode || !id) return;
+      
+      try {
+        setLoading(true);
+        const data = await parkingAPI.getById(id);
+        setFormData(prev => ({
+          ...prev,
+          ...data,
+          // Ensure slotDimensions exists and has default values if not present
+          slotDimensions: data.slotDimensions || { length: 18, width: 9, height: 0 }
+        }));
       } catch (error) {
         console.error('Error fetching slot details:', error);
-        setError(error.response?.data?.message || 'Failed to load slot details');
+        setError('Failed to load parking slot details');
       } finally {
         setLoading(false);
       }
@@ -68,320 +193,269 @@ const AddParkingSlot = () => {
     fetchSlotDetails();
   }, [id, isEditMode]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    
-    if (name in formData.amenities) {
-      setFormData(prev => ({
-        ...prev,
-        amenities: {
-          ...prev.amenities,
-          [name]: checked
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'number' ? Number(value) : value
-      }));
-    }
-  };
-
-  const getCurrentLocation = () => {
-    setLocationError('');
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCurrentLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        setFormData(prev => ({
-          ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }));
-        setLoading(false);
-      },
-      (error) => {
-        setLocationError('Unable to retrieve your location');
-        console.error('Geolocation error:', error);
-        setLoading(false);
-      }
-    );
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    
-    // Basic validation
-    if (!formData.name || !formData.address || !formData.latitude || !formData.longitude) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      // Prepare the data to send to the server
-      const slotData = {
-        name: formData.name.trim(),
-        address: formData.address.trim(),
-        latitude: parseFloat(formData.latitude) || 0,
-        longitude: parseFloat(formData.longitude) || 0,
-        totalSlots: parseInt(formData.totalSlots, 10) || 10,
-        pricePerHour: parseFloat(formData.pricePerHour) || 50,
-        amenities: Object.entries(formData.amenities)
-          .filter(([_, value]) => value)
-          .map(([key]) => key),
-        operatingHours: {
-          open: '00:00',
-          close: '23:59'
-        }
-      };
-      
-      console.log('Submitting slot data:', JSON.stringify(slotData, null, 2));
-      
-      // Make the API call without expecting a specific response structure
-      if (isEditMode) {
-        await parkingAPI.update(id, slotData);
-      } else {
-        await parkingAPI.create(slotData);
-      }
-      
-      // If we get here, the request was successful
-      navigate('/admin/manage-slots');
-      
-    } catch (err) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} parking slot:`, err);
-      
-      // Simplified error handling
-      let errorMessage = 'An error occurred while processing your request.';
-      
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        const { status, data } = err.response;
-        console.error('Error response:', { status, data });
-        
-        errorMessage = data?.message || 
-                      (status === 400 && 'Invalid data provided') ||
-                      (status === 401 && 'Please log in to continue') ||
-                      (status === 403 && 'You do not have permission to perform this action') ||
-                      (status === 404 && 'The requested resource was not found') ||
-                      (status >= 500 && 'Server error. Please try again later.') ||
-                      'An unexpected error occurred';
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received:', err.request);
-        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="loading" style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '50vh'
-      }}>
-        <div className="spinner" style={{
-          width: '50px',
-          height: '50px',
-          border: '5px solid #f3f3f3',
-          borderTop: '5px solid #10b981',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="add-parking-slot">
-      <div className="add-slot-container">
-        <div className="add-slot-header">
-          <h1>{isEditMode ? 'Edit Parking Slot' : 'Add New Parking Slot'}</h1>
-          <button 
-            className="btn-close"
-            onClick={() => navigate('/admin/manage-slots')}
-            disabled={loading}
-          >
-            <X size={24} />
-          </button>
+    <div className="add-parking-slot-container">
+      <h2>{isEditMode ? 'Edit Parking Slot' : 'Add New Parking Slot'}</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+
+      <form onSubmit={handleSubmit}>
+        {/* Existing form fields */}
+        <div className="form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+            className="form-control"
+          />
         </div>
 
-        {error && (
-          <div className="alert alert-error">
-            <AlertCircle size={18} />
-            <span>{error}</span>
-          </div>
-        )}
+        <div className="form-group">
+          <label>Address</label>
+          <textarea
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            required
+            className="form-control"
+            rows="3"
+          ></textarea>
+        </div>
 
-        <form onSubmit={handleSubmit} className="slot-form">
+        <div className="form-row">
+  <div className="form-group">
+    <label htmlFor="latitude">Latitude</label>
+    <input
+      type="number"
+      id="latitude"
+      name="latitude"
+      value={formData.latitude}
+      onChange={handleChange}
+      step="any"
+      required
+      className="form-control"
+    />
+  </div>
+  <div className="form-group">
+    <label htmlFor="longitude">Longitude</label>
+    <input
+      type="number"
+      id="longitude"
+      name="longitude"
+      value={formData.longitude}
+      onChange={handleChange}
+      step="any"
+      required
+      className="form-control"
+    />
+  </div>
+  <button
+    type="button"
+    onClick={getCurrentLocation}
+    disabled={isLocationLoading}
+    className="btn-location"
+  >
+    {isLocationLoading ? 'Getting Location...' : 'Get Current Location'}
+  </button>
+</div>
+        <div className="form-row">
           <div className="form-group">
-            <label>Parking Name *</label>
+            <label>Total Slots</label>
             <input
-              type="text"
-              name="name"
-              value={formData.name}
+              type="number"
+              min="1"
+              name="totalSlots"
+              value={formData.totalSlots}
               onChange={handleChange}
-              placeholder="e.g., Downtown Parking"
+              required
+              className="form-control"
+            />
+          </div>
+          <div className="form-group">
+            <label>Price per Hour (₹)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              name="pricePerHour"
+              value={formData.pricePerHour}
+              onChange={handleChange}
+              required
+              className="form-control"
+            />
+          </div>
+        </div>
+
+        
+        {/* <div className="form-group">
+          <label>Amenities</label>
+          <div className="amenities-grid">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="cctv"
+                checked={formData.amenities.cctv}
+                onChange={handleChange}
+              />
+              <span className="custom-checkbox"></span>
+              <span>CCTV</span>
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="security"
+                checked={formData.amenities.security}
+                onChange={handleChange}
+              />
+              <span className="custom-checkbox"></span>
+              <span>24/7 Security</span>
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="covered"
+                checked={formData.amenities.covered}
+                onChange={handleChange}
+              />
+              <span className="custom-checkbox"></span>
+              <span>Covered</span>
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="evCharging"
+                checked={formData.amenities.evCharging}
+                onChange={handleChange}
+              />
+              <span className="custom-checkbox"></span>
+              <span>EV Charging</span>
+            </label>
+          </div>
+        </div> */}
+
+        {/* Vehicle Type and Slot Dimensions */}
+        <div className="form-group">
+          <label>Vehicle Type Preset</label>
+          <select 
+            className="form-control"
+            onChange={handleVehicleTypeChange}
+            value={VEHICLE_PRESETS.find(preset => 
+              preset.dimensions.length === formData.slotDimensions.length &&
+              preset.dimensions.width === formData.slotDimensions.width
+            )?.name || 'Custom'}
+          >
+            {VEHICLE_PRESETS.map(preset => (
+              <option key={preset.name} value={preset.name}>
+                {preset.name} {preset.dimensions.length > 0 ? 
+                  `(${preset.dimensions.length}' x ${preset.dimensions.width}')` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Slot Length (feet)</label>
+            <input
+              type="number"
+              className="form-control"
+              min="0"
+              step="0.1"
+              value={formData.slotDimensions.length}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                slotDimensions: {
+                  ...prev.slotDimensions,
+                  length: parseFloat(e.target.value) || 0
+                }
+              }))}
               required
             />
           </div>
-
           <div className="form-group">
-            <label>Address *</label>
-            <div className="input-with-icon">
-              <MapPin size={18} className="input-icon" />
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="Enter full address"
-                required
-              />
-            </div>
+            <label>Slot Width (feet)</label>
+            <input
+              type="number"
+              className="form-control"
+              min="0"
+              step="0.1"
+              value={formData.slotDimensions.width}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                slotDimensions: {
+                  ...prev.slotDimensions,
+                  width: parseFloat(e.target.value) || 0
+                }
+              }))}
+              required
+            />
           </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Latitude *</label>
-              <input
-                type="number"
-                step="any"
-                name="latitude"
-                value={formData.latitude}
-                onChange={handleChange}
-                placeholder="e.g., 12.9716"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Longitude *</label>
-              <div className="input-with-button">
-                <input
-                  type="number"
-                  step="any"
-                  name="longitude"
-                  value={formData.longitude}
-                  onChange={handleChange}
-                  placeholder="e.g., 77.5946"
-                  required
-                />
-                <button 
-                  type="button" 
-                  className="btn-location"
-                  onClick={getCurrentLocation}
-                  disabled={loading}
-                >
-                  {loading ? 'Locating...' : 'Use My Location'}
-                </button>
-              </div>
-              {locationError && <p className="error-text">{locationError}</p>}
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Total Slots</label>
-              <input
-                type="number"
-                name="totalSlots"
-                min="1"
-                value={formData.totalSlots}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Price per Hour (₹)</label>
-              <input
-                type="number"
-                name="pricePerHour"
-                min="0"
-                step="0.01"
-                value={formData.pricePerHour}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
           <div className="form-group">
-            <label>Amenities</label>
-            <div className="amenities-grid">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="cctv"
-                  checked={formData.amenities.cctv}
-                  onChange={handleChange}
-                />
-                <span>CCTV</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="security"
-                  checked={formData.amenities.security}
-                  onChange={handleChange}
-                />
-                <span>24/7 Security</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="covered"
-                  checked={formData.amenities.covered}
-                  onChange={handleChange}
-                />
-                <span>Covered Parking</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="evCharging"
-                  checked={formData.amenities.evCharging}
-                  onChange={handleChange}
-                />
-                <span>EV Charging</span>
-              </label>
-            </div>
+            <label>Height Clearance (feet, 0 = no restriction)</label>
+            <input
+              type="number"
+              className="form-control"
+              min="0"
+              step="0.1"
+              value={formData.slotDimensions.height}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                slotDimensions: {
+                  ...prev.slotDimensions,
+                  height: parseFloat(e.target.value) || 0
+                }
+              }))}
+            />
           </div>
+        </div>
+        <div className="form-group">
+  <label>Facilities</label>
+  <div className="facilities-grid">
+    {FACILITIES.map(facility => (
+      <label key={facility.id} className="facility-item">
+        <input
+          type="checkbox"
+          name={facility.id}
+          checked={formData.amenities[facility.id] || false}
+          onChange={handleChange}
+        />
+        <span className="custom-checkbox"></span>
+        <span className="facility-label">{facility.label}</span>
+      </label>
+    ))}
+  </div>
+</div>
 
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => navigate('/admin/manage-slots')}
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? 'Saving...' : (isEditMode ? 'Update Parking Slot' : 'Save Parking Slot')}
-              {!loading && <Check size={18} style={{ marginLeft: '8px' }} />}
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="form-actions">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            {loading ? 'Saving...' : (isEditMode ? 'Update' : 'Add')} Parking Slot
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

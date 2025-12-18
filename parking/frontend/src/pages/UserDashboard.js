@@ -42,41 +42,48 @@ const UserDashboard = () => {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    const translateAll = async () => {
-      const keys = Object.keys(t);
-      const translations = {};
-      for (const k of keys) {
-        translations[k] = await tAsync(t[k]);
-      }
-      if (mounted) setT(translations);
-    };
-    if (currentLanguage !== 'en') translateAll();
-    return () => { mounted = false; };
-  }, [currentLanguage]);
+  let mounted = true;
+  const translateAll = async () => {
+    const keys = Object.keys(t);
+    const translations = {};
+    for (const k of keys) {
+      translations[k] = await tAsync(t[k]);
+    }
+    if (mounted) setT(translations);
+  };
+  if (currentLanguage !== 'en') translateAll();
+  return () => { mounted = false; };
+}, [currentLanguage, t, tAsync]); // Added t and tAsync to dependencies
 
   const fetchBookings = async () => {
-    try {
-      const response = await bookingAPI.getMyBookings();
-      const bookingsData = response.data;
-      setBookings(bookingsData.slice(0, 5)); // Show last 5 bookings
-
-      // Calculate stats
-      const stats = {
-        totalBookings: bookingsData.length,
-        activeBookings: bookingsData.filter(b => b.status === 'active').length,
-        completedBookings: bookingsData.filter(b => b.status === 'completed').length,
-        totalSpent: bookingsData
-          .filter(b => b.status !== 'cancelled')
-          .reduce((sum, b) => sum + b.totalPrice, 0),
-      };
-      setStats(stats);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-    } finally {
-      setLoading(false);
+  try {
+    console.log('Fetching bookings...');
+    const response = await bookingAPI.getMyBookings();
+    console.log('Bookings response:', response);
+    
+    if (!response.data) {
+      console.error('No data in response:', response);
+      return;
     }
-  };
+    
+    const bookingsData = response.data;
+    console.log('Bookings data:', bookingsData); // Log the actual data
+    
+    setBookings(bookingsData.slice(0, 5));
+    
+    // Rest of your code...
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    if (error.response) {
+      console.error('Error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
