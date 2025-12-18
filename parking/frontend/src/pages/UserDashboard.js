@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { bookingAPI } from '../utils/api';
 import { MapPin, Calendar, Clock, TrendingUp, Car } from 'lucide-react';
@@ -21,7 +20,7 @@ const UserDashboard = () => {
   const [t, setT] = useState({
     welcome: tSync('Welcome back'),
     subtitle: tSync("Here's what's happening with your parking today"),
-    findParking: tSync('Find Parking'),
+
     totalBookings: tSync('Total Bookings'),
     activeBookings: tSync('Active Bookings'),
     completed: tSync('Completed'),
@@ -30,10 +29,10 @@ const UserDashboard = () => {
     viewAll: tSync('View All'),
     noBookings: tSync('No bookings yet'),
     startParking: tSync('Start by finding a parking spot near you'),
-    findParkingNow: tSync('Find Parking Now'),
+
     quickActions: tSync('Quick Actions'),
     myBookings: tSync('My Bookings'),
-    searchSpots: tSync('Search for available spots'),
+
     completedLabel: tSync('Completed'),
   });
 
@@ -71,7 +70,14 @@ const UserDashboard = () => {
     
     setBookings(bookingsData.slice(0, 5));
     
-    // Rest of your code...
+    // Calculate stats from bookings data
+    const calculatedStats = {
+      totalBookings: bookingsData.length,
+      activeBookings: bookingsData.filter(b => b.status === 'active' || b.status === 'confirmed').length,
+      completedBookings: bookingsData.filter(b => b.status === 'completed').length,
+      totalSpent: bookingsData.reduce((sum, b) => sum + (b.totalPrice || 0), 0)
+    };
+    setStats(calculatedStats);
   } catch (error) {
     console.error('Error fetching bookings:', error);
     if (error.response) {
@@ -122,10 +128,10 @@ const UserDashboard = () => {
             <h1>{t.welcome}, {user?.name}! 👋</h1>
             <p>{t.subtitle}</p>
           </div>
-          <Link to="/find-parking" className="btn btn-primary">
+          <div className="btn btn-primary" style={{opacity: 0.5, cursor: "not-allowed"}}>
             <MapPin size={20} />
-            {t.findParking}
-          </Link>
+Map View (Disabled)
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -175,9 +181,9 @@ const UserDashboard = () => {
         <div className="dashboard-section">
           <div className="section-header">
             <h2>{t.recentBookings}</h2>
-            <Link to="/my-bookings" className="view-all-link">
+            <div className="view-all-link">
               {t.viewAll} →
-            </Link>
+            </div>
           </div>
 
           {bookings.length === 0 ? (
@@ -185,9 +191,9 @@ const UserDashboard = () => {
               <Car size={64} color="#d1d5db" />
               <h3>{t.noBookings}</h3>
               <p>{t.startParking}</p>
-              <Link to="/find-parking" className="btn btn-primary">
-                {t.findParkingNow}
-              </Link>
+              <div className="btn btn-primary" style={{opacity: 0.5, cursor: "not-allowed"}}>
+Map View (Disabled)
+              </div>
             </div>
           ) : (
             <div className="bookings-list">
@@ -229,16 +235,16 @@ const UserDashboard = () => {
         <div className="quick-actions">
           <h2>{t.quickActions}</h2>
           <div className="action-grid">
-            <Link to="/find-parking" className="action-card">
+            <div className="action-card" style={{opacity: 0.5, cursor: "not-allowed"}}>
               <MapPin size={32} />
-              <h3>{t.findParking}</h3>
-              <p>{t.searchSpots}</p>
-            </Link>
-            <Link to="/my-bookings" className="action-card">
+              <h3>Map View (Disabled)</h3>
+              <p>Map functionality is currently disabled</p>
+            </div>
+            <div className="action-card">
               <Calendar size={32} />
               <h3>{t.myBookings}</h3>
               <p>{t.viewAll}</p>
-            </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -68,12 +68,29 @@ function AppContent() {
           } />
           <Route path="/admin/add-parking-slot" element={
             <AdminRoute>
-              <AddParkingSlot />
+              <AddParkingSlot 
+                onSuccess={(message) => {
+                  console.log('Parking slot created:', message);
+                  window.location.href = '/admin/dashboard';
+                }}
+                onClose={() => {
+                  window.location.href = '/admin/dashboard';
+                }}
+              />
             </AdminRoute>
           } />
           <Route path="/admin/edit-parking-slot/:id" element={
             <AdminRoute>
-              <AddParkingSlot />
+              <AddParkingSlot 
+                isEditMode={true}
+                onSuccess={(message) => {
+                  console.log('Parking slot updated:', message);
+                  window.location.href = '/admin/dashboard';
+                }}
+                onClose={() => {
+                  window.location.href = '/admin/dashboard';
+                }}
+              />
             </AdminRoute>
           } />
           <Route path="/admin/analytics" element={

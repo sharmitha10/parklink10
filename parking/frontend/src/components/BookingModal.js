@@ -1,62 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { bookingAPI } from '../utils/api';
 import { X, AlertCircle, Check, Star, CheckCircle } from 'lucide-react';
-import ReviewModal from './ReviewModal';
+import PayPalPayment from './PayPalPayment';
 import './BookingModal.css';
-
-// Add inline styles for the new UI components
-const styles = {
-  headerContent: {
-    flex: 1,
-  },
-  slotAvailability: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginTop: '8px',
-  },
-  price: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: '4px 12px',
-    borderRadius: '20px',
-    fontSize: '14px',
-    fontWeight: 600,
-  },
-  available: {
-    fontSize: '14px',
-    color: '#6b7280',
-  },
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
-    marginBottom: '16px',
-  },
-  dateTimePicker: {
-    width: '100%',
-  },
-  pricingDetails: {
-    marginTop: '12px',
-  },
-  pricingHighlight: {
-    color: '#6366f1',
-    fontWeight: 500,
-  },
-  pricingTotal: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: '16px',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  totalAmount: {
-    fontSize: '20px',
-    fontWeight: 700,
-    color: '#111827',
-  },
-};
 
 const BookingModal = ({ slot, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -85,9 +31,55 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  const [reviewStatus, setReviewStatus] = useState({ canReview: false, hasReviewed: false });
   const [isBookingCompleted, setIsBookingCompleted] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+  // PayPal payment handlers
+  const handlePayPalPaymentSuccess = (paymentDetails) => {
+    console.log('PayPal payment successful:', paymentDetails);
+    // Create booking with PayPal payment
+    createBookingWithPayment('paypal', paymentDetails);
+  };
+
+  const handlePayPalPaymentError = (error) => {
+    console.error('PayPal payment error:', error);
+    setError('Payment failed. Please try again.');
+  };
+
+  const handlePayPalPaymentCancel = (data) => {
+    console.log('PayPal payment cancelled:', data);
+    setError('Payment was cancelled. Please try again.');
+  };
+
+  const createBookingWithPayment = async (paymentMethodType, paymentDetails) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const bookingData = {
+        parkingSlotId: slot._id,
+        vehicleNumber: formData.vehicleNumber,
+        vehicleType: formData.vehicleType,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        paymentMethod: paymentMethodType,
+        paymentDetails: paymentDetails,
+        totalPrice: pricing.totalPrice
+      };
+
+      const response = await bookingAPI.createBooking(bookingData);
+      
+      if (response.data) {
+        setPaymentSuccess(true);
+        onSuccess(response.data);
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      setError('Failed to create booking. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check if booking end time has been reached
   useEffect(() => {
@@ -219,7 +211,7 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
         });
       }
     }
-  }, [formData.startTime, formData.endTime, slot.pricePerHour]);
+  }, [formData.startTime, formData.endTime, slot]);
 
   const formatDateTime = (date) => {
     const pad = num => num.toString().padStart(2, '0');
@@ -265,7 +257,6 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
         parkingSlotId: slot._id,
         bookingId: localStorage.getItem('lastBookingId')
       });
-      setReviewStatus({ canReview: false, hasReviewed: true });
       setShowReview(false);
       onClose();
     } catch (error) {
@@ -295,32 +286,30 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
     }
 
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Create real booking via API
+      const bookingData = {
+        parkingSlotId: slot._id,
+        vehicleNumber: formData.vehicleNumber,
+        vehicleType: formData.vehicleType,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        paymentMethod: paymentMethod,
+        totalPrice: pricing.totalPrice,
+        paymentStatus: 'pending'
+      };
+
+      console.log('Creating booking with data:', bookingData);
+      const response = await bookingAPI.create(bookingData);
       
-      // Show success popup
-      setShowSuccessPopup(true);
-      
-      // Hide popup after 3 seconds
-      setTimeout(() => {
-        setShowSuccessPopup(false);
+      if (response.data) {
+        console.log('Booking created successfully:', response.data);
         setPaymentSuccess(true);
         
-        // Call onSuccess callback if provided
+        // Call onSuccess callback with real booking data
         if (onSuccess) {
-          onSuccess({
-            _id: 'mock_booking_id_' + Date.now(),
-            ...formData,
-            totalPrice: pricing.totalPrice,
-            paymentStatus: 'completed',
-            status: 'confirmed',
-            slot: {
-              _id: slot._id,
-              name: slot.name
-            }
-          });
+          onSuccess(response.data);
         }
-      }, 3000);
+      }
       
     } catch (err) {
       setError('Failed to process booking. Please try again.');
@@ -646,6 +635,27 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
                     <span>Net Banking</span>
                   </div>
                 </label>
+                <label style={{
+                  flex: 1,
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  cursor: 'pointer',
+                  backgroundColor: paymentMethod === 'paypal' ? '#f0fdf4' : 'white',
+                  borderColor: paymentMethod === 'paypal' ? '#10b981' : '#e5e7eb'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="paypal"
+                      checked={paymentMethod === 'paypal'}
+                      onChange={() => setPaymentMethod('paypal')}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span>PayPal</span>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -774,6 +784,22 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
               </div>
             )}
 
+            {paymentMethod === 'paypal' && (
+              <div style={{
+                backgroundColor: '#f9fafb',
+                padding: '16px',
+                borderRadius: '8px',
+                marginBottom: '20px'
+              }}>
+                <PayPalPayment
+                  amount={pricing.totalPrice}
+                  onPaymentSuccess={handlePayPalPaymentSuccess}
+                  onPaymentError={handlePayPalPaymentError}
+                  onPaymentCancel={handlePayPalPaymentCancel}
+                />
+              </div>
+            )}
+
             <div className="form-actions">
               <button
                 type="button"
@@ -796,7 +822,7 @@ const BookingModal = ({ slot, onClose, onSuccess }) => {
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={loading}
+                disabled={loading || paymentMethod === 'paypal'}
                 style={{
                   padding: '12px 24px',
                   backgroundColor: '#10b981',

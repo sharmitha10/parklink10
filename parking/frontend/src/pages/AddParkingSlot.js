@@ -124,13 +124,16 @@ const AddParkingSlot = ({ onSuccess, onClose, isEditMode = false }) => {
         longitude: formData.longitude,
         totalSlots: formData.totalSlots,
         pricePerHour: formData.pricePerHour,
-        amenities: formData.amenities,
+        amenities: Object.keys(formData.amenities).filter(key => formData.amenities[key]),
         slotDimensions: {
           length: parseFloat(formData.slotDimensions.length) || 0,
           width: parseFloat(formData.slotDimensions.width) || 0,
           height: parseFloat(formData.slotDimensions.height) || 0
         }
       };
+      
+      console.log('Sending slot data:', slotData);
+      console.log('Token:', localStorage.getItem('token'));
 
       if (isEditMode) {
         await parkingAPI.update(id, slotData);

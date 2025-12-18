@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { Globe } from 'lucide-react';

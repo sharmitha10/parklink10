@@ -1,11 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { parkingAPI } from '../utils/api';
 import { useAutoTranslate } from '../components/LanguageSwitcher';
 import BookingModal from '../components/BookingModal';
-import CustomMap from '../components/CustomMap';
-import { MapPin, Navigation, DollarSign, Clock, Filter } from 'lucide-react';
+import { MapPin, Navigation, DollarSign, Clock, Star, Filter } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './FindParking.css';
+
+// Fix for default marker icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+  iconUrl: require('leaflet/dist/images/marker-icon.png'),
+  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+});
+
+const MapUpdater = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, 13);
+  }, [center, map]);
+  return null;
+};
 
 const FindParking = () => {
   const navigate = useNavigate();
@@ -30,50 +48,37 @@ const FindParking = () => {
     amenities: tSync('Amenities'),
   });
 
-  // State declarations first
+  useEffect(() => {
+    let mounted = true;
+    const translateAll = async () => {
+      const keys = Object.keys(t);
+      const translations = {};
+      for (const k of keys) {
+        translations[k] = await tAsync(t[k]);
+      }
+      if (mounted) setT(translations);
+    };
+    if (currentLanguage !== 'en') translateAll();
+    return () => { mounted = false; };
+  }, [currentLanguage]);
   const [parkingSlots, setParkingSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [userLocation, setUserLocation] = useState({ lat: 28.6139, lng: 77.2090 }); // Default: Delhi
+  const [userLocation, setUserLocation] = useState([28.6139, 77.2090]); // Default: Delhi
   const [searchRadius, setSearchRadius] = useState(5);
   const [filters, setFilters] = useState({
     maxPrice: 100,
     sortBy: 'distance',
   });
-  const [bookedSlots, setBookedSlots] = useState([]);
-  const [showRouteToSlot, setShowRouteToSlot] = useState(null);
 
-  // Functions that use state
-  const translateAll = useCallback(async () => {
-    const keys = Object.keys(t);
-    const translations = {};
-    for (const k of keys) {
-      translations[k] = await tAsync(t[k]);
-    }
-    setT(translations);
-  }, [t, tAsync]);
+  useEffect(() => {
+    getUserLocation();
+  }, []);
 
-  const fetchParkingSlots = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await parkingAPI.getAll({
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-        radius: searchRadius,
-      });
-      
-      // Transform parking slots to have latitude and longitude properties
-      const transformedSlots = response.data.map(slot => ({
-        ...slot,
-        latitude: slot.latitude || (slot.location?.coordinates?.[1] || 0),
-        longitude: slot.longitude || (slot.location?.coordinates?.[0] || 0)
-      }));
-      setParkingSlots(transformedSlots);
-    } catch (error) {
-      console.error('Error fetching parking slots:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (userLocation) {
+      fetchParkingSlots();
     }
   }, [userLocation, searchRadius]);
 
@@ -81,10 +86,7 @@ const FindParking = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({ 
-            lat: position.coords.latitude, 
-            lng: position.coords.longitude 
-          });
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -101,16 +103,29 @@ const FindParking = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({ 
-            lat: position.coords.latitude, 
-            lng: position.coords.longitude 
-          });
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
         },
         (error) => {
           console.error('Error getting location:', error);
           // Use default location if user denies
         }
       );
+    }
+  };
+
+  const fetchParkingSlots = async () => {
+    try {
+      setLoading(true);
+      const response = await parkingAPI.getAll({
+        lat: userLocation[0],
+        lng: userLocation[1],
+        radius: searchRadius,
+      });
+      setParkingSlots(response.data);
+    } catch (error) {
+      console.error('Error fetching parking slots:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,26 +139,9 @@ const FindParking = () => {
   };
 
   const navigateToSlot = (slot) => {
-    const lat = slot.latitude || (slot.location?.coordinates?.[1] || 0);
-    const lng = slot.longitude || (slot.location?.coordinates?.[0] || 0);
+    const [lng, lat] = slot.location.coordinates;
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(googleMapsUrl, '_blank');
-  };
-
-  const handleBookingSuccess = (bookedSlot) => {
-    // Add to booked slots list
-    setBookedSlots(prev => [...prev, bookedSlot]);
-    
-    // Show route to the booked slot
-    setShowRouteToSlot(bookedSlot);
-    
-    // Close booking modal
-    setShowBookingModal(false);
-    
-    // Navigate to my bookings after a short delay
-    setTimeout(() => {
-      navigate('/my-bookings');
-    }, 2000);
   };
 
   const getAvailabilityColor = (availableSlots, totalSlots) => {
@@ -152,27 +150,6 @@ const FindParking = () => {
     if (percentage > 20) return '#f59e0b';
     return '#ef4444';
   };
-
-  // Effects
-  useEffect(() => {
-    let mounted = true;
-    if (currentLanguage !== 'en') {
-      translateAll().then((result) => {
-        if (mounted) setT(result);
-      });
-    }
-    return () => { mounted = false; };
-  }, [currentLanguage, translateAll]);
-
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  useEffect(() => {
-    if (userLocation) {
-      fetchParkingSlots();
-    }
-  }, [userLocation, searchRadius, fetchParkingSlots]);
 
   if (loading) {
     return (
@@ -224,7 +201,7 @@ const FindParking = () => {
             </div>
 
             <div className="filter-group">
-              <label>{t.maxPrice}: ₹{filters.maxPrice}/hr</label>
+              <label>{t.maxPrice}: â‚¹{filters.maxPrice}/hr</label>
               <input
                 type="range"
                 min="10"
@@ -248,31 +225,41 @@ const FindParking = () => {
             </div>
           </div>
 
-          {/* Parking Slots List */}
-          <div className="parking-slots-list">
-            {parkingSlots.length > 0 ? (
+          {/* Parking List */}
+          <div className="parking-list">
+            {parkingSlots.length === 0 ? (
+              <div className="no-results">
+                <MapPin size={48} color="#d1d5db" />
+                <p>{t.noSlotsFound}</p>
+              </div>
+            ) : (
               parkingSlots.map((slot) => (
-                <div 
-                  key={slot._id} 
-                  className={`parking-slot-card ${selectedSlot?._id === slot._id ? 'selected' : ''}`}
+                <div
+                  key={slot._id}
+                  className={`parking-card ${selectedSlot?._id === slot._id ? 'selected' : ''}`}
                   onClick={() => handleSlotClick(slot)}
                 >
-                  <div className="slot-header">
-                    <h4>{slot.name}</h4>
-                    <span 
+                  <div className="parking-card-header">
+                    <h3>{slot.name}</h3>
+                    <div
                       className="availability-badge"
-                      style={{ backgroundColor: getAvailabilityColor(slot.availableSlots, slot.totalSlots) }}
+                      style={{
+                        backgroundColor: getAvailabilityColor(slot.availableSlots, slot.totalSlots),
+                      }}
                     >
-                      {slot.availableSlots}/{slot.totalSlots} {t.available}
-                    </span>
+                      {slot.availableSlots}/{slot.totalSlots}
+                    </div>
                   </div>
-                  
-                  <p className="slot-address">{slot.address}</p>
-                  
-                  <div className="slot-info">
+
+                  <p className="parking-address">
+                    <MapPin size={14} />
+                    {slot.address}
+                  </p>
+
+                  <div className="parking-info">
                     <span className="price">
                       <DollarSign size={16} />
-                      ₹{slot.pricePerHour}/hr
+                      â‚¹{slot.pricePerHour}/hr
                     </span>
                     <span>
                       <Clock size={16} />
@@ -314,25 +301,63 @@ const FindParking = () => {
                   </div>
                 </div>
               ))
-            ) : (
-              <div className="no-slots">
-                <p>{t.noSlotsFound}</p>
-              </div>
             )}
           </div>
         </div>
 
         {/* Map */}
         <div className="parking-map">
-          <CustomMap
-            parkingSlots={parkingSlots}
-            centerLat={userLocation.lat}
-            centerLng={userLocation.lng}
-            onSlotClick={handleSlotClick}
-            userLocation={userLocation}
-            bookedSlots={bookedSlots}
-            showRouteToSlot={showRouteToSlot}
-          />
+          <MapContainer
+            center={userLocation}
+            zoom={13}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <MapUpdater center={userLocation} />
+
+            {/* User Location Marker */}
+            <Marker position={userLocation}>
+              <Popup>{t.yourLocation}</Popup>
+            </Marker>
+
+            {/* Parking Slot Markers */}
+            {parkingSlots.map((slot) => {
+              const [lng, lat] = slot.location.coordinates;
+              return (
+                <Marker
+                  key={slot._id}
+                  position={[lat, lng]}
+                  eventHandlers={{
+                    click: () => handleSlotClick(slot),
+                  }}
+                >
+                  <Popup>
+                    <div style={{ minWidth: '200px' }}>
+                      <h3 style={{ marginBottom: '8px' }}>{slot.name}</h3>
+                      <p style={{ fontSize: '12px', marginBottom: '8px' }}>{slot.address}</p>
+                      <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                        â‚¹{slot.pricePerHour}/hr
+                      </p>
+                      <p style={{ marginBottom: '12px' }}>
+                        {t.available}: {slot.availableSlots}/{slot.totalSlots}
+                      </p>
+                      <button
+                        onClick={() => handleBookNow(slot)}
+                        className="btn btn-primary btn-sm"
+                        style={{ width: '100%' }}
+                        disabled={slot.availableSlots === 0}
+                      >
+                        {t.bookNow}
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
         </div>
       </div>
 
@@ -341,7 +366,10 @@ const FindParking = () => {
         <BookingModal
           slot={selectedSlot}
           onClose={() => setShowBookingModal(false)}
-          onSuccess={(bookedSlot) => handleBookingSuccess(bookedSlot)}
+          onSuccess={() => {
+            setShowBookingModal(false);
+            navigate('/my-bookings');
+          }}
         />
       )}
     </div>
