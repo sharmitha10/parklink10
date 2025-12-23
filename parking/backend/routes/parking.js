@@ -60,6 +60,9 @@ router.get('/:id', async (req, res) => {
 // @route   POST /api/parking
 // @desc    Create a new parking slot
 // @access  Private (Admin only)
+// @route   POST /api/parking
+// @desc    Create a new parking slot
+// @access  Private (Admin only)
 router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const {
@@ -70,8 +73,13 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       totalSlots,
       pricePerHour,
       amenities,
-      operatingHours
+      slotDimensions
     } = req.body;
+
+    // Validate required fields
+    if (!name || !address || !latitude || !longitude || !totalSlots || !pricePerHour) {
+      return res.status(400).json({ message: 'Please provide all required fields' });
+    }
 
     const parkingSlot = new ParkingSlot({
       name,
@@ -80,12 +88,21 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
         type: 'Point',
         coordinates: [parseFloat(longitude), parseFloat(latitude)]
       },
-      totalSlots,
-      availableSlots: totalSlots,
-      pricePerHour,
-      amenities: amenities || [],
+      totalSlots: parseInt(totalSlots),
+      availableSlots: parseInt(totalSlots),
+      pricePerHour: parseFloat(pricePerHour),
+      amenities: Array.isArray(amenities) ? amenities : [],
       owner: req.user.userId,
-      operatingHours: operatingHours || { open: '00:00', close: '23:59' }
+      slotDimensions: {
+        length: parseFloat(slotDimensions?.length) || 18,
+        width: parseFloat(slotDimensions?.width) || 9,
+        height: parseFloat(slotDimensions?.height) || 0
+      },
+      // Set default operating hours
+      operatingHours: {
+        open: '00:00',
+        close: '23:59'
+      }
     });
 
     await parkingSlot.save();
@@ -95,11 +112,13 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       parkingSlot
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error creating parking slot:', err);
+    res.status(500).json({ 
+      message: 'Failed to create parking slot',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
-
 // @route   PUT /api/parking/:id
 // @desc    Update parking slot
 // @access  Private (Admin only)

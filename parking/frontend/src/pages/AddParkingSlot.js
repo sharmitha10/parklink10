@@ -111,66 +111,64 @@ const AddParkingSlot = ({ onSuccess, onClose, isEditMode = false }) => {
   }
 };
   // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      const slotData = {
-        name: formData.name,
-        address: formData.address,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        totalSlots: formData.totalSlots,
-        pricePerHour: formData.pricePerHour,
-        amenities: Object.keys(formData.amenities).filter(key => formData.amenities[key]),
-        slotDimensions: {
-          length: parseFloat(formData.slotDimensions.length) || 0,
-          width: parseFloat(formData.slotDimensions.width) || 0,
-          height: parseFloat(formData.slotDimensions.height) || 0
-        }
-      };
-      
-      console.log('Sending slot data:', slotData);
-      console.log('Token:', localStorage.getItem('token'));
-
-      if (isEditMode) {
-        await parkingAPI.update(id, slotData);
-        onSuccess('Parking slot updated successfully');
-      } else {
-        await parkingAPI.create(slotData);
-        onSuccess('Parking slot created successfully');
-        // Reset form after successful submission
-        setFormData({
-          name: '',
-          address: '',
-          latitude: '',
-          longitude: '',
-          totalSlots: 1,
-          pricePerHour: 50,
-          amenities: {
-            cctv: false,
-            security: false,
-            covered: false,
-            evCharging: false
-          },
-          slotDimensions: {
-            length: 18,
-            width: 9,
-            height: 0
-          }
-        });
+  try {
+    const slotData = {
+      name: formData.name,
+      address: formData.address,
+      latitude: formData.latitude,
+      longitude: formData.longitude,
+      totalSlots: formData.totalSlots,
+      pricePerHour: formData.pricePerHour,
+      amenities: Object.keys(formData.amenities).filter(key => formData.amenities[key]),
+      slotDimensions: {
+        length: parseFloat(formData.slotDimensions.length) || 0,
+        width: parseFloat(formData.slotDimensions.width) || 0,
+        height: parseFloat(formData.slotDimensions.height) || 0
       }
-      onClose();
-    } catch (error) {
-      console.error('Error saving parking slot:', error);
-      setError(error.response?.data?.message || 'Failed to save parking slot');
-    } finally {
-      setLoading(false);
+    };
+    
+    console.log('Sending slot data:', slotData);
+    
+    if (isEditMode) {
+      await parkingAPI.update(id, slotData);
+      onSuccess('Parking slot updated successfully');
+    } else {
+      await parkingAPI.create(slotData);
+      onSuccess('Parking slot created successfully');
+      // Reset form after successful submission
+      setFormData({
+        name: '',
+        address: '',
+        latitude: '',
+        longitude: '',
+        totalSlots: 1,
+        pricePerHour: 50,
+        amenities: {
+          cctv: false,
+          security: false,
+          covered: false,
+          evCharging: false
+        },
+        slotDimensions: {
+          length: 18,
+          width: 9,
+          height: 0
+        }
+      });
     }
-  };
-
+    onClose();
+  } catch (error) {
+    console.error('Error saving parking slot:', error);
+    setError(error.response?.data?.message || 'Failed to save parking slot. Please check your input and try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   // Fetch slot details when in edit mode
   useEffect(() => {
     const fetchSlotDetails = async () => {

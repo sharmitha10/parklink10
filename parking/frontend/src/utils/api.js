@@ -1,16 +1,15 @@
 import axios from 'axios';
-
-// const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+import { getAuthToken } from './auth';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5001/api',
+  baseURL: 'http://localhost:5000/api',
   timeout: 10000, // 10 second timeout
 });
 
-// Add token to requests
+// Single request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -21,32 +20,33 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Server responded with a status code outside 2xx
+      console.error('API Error:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error('No response received:', error.request);
+    } else {
+      // Error in request setup
+      console.error('Request setup error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Parking API
 export const parkingAPI = {
   getAll: (params) => api.get('/parking', { params }),
   getById: (id) => api.get(`/parking/${id}`),
-  create: async (data) => {
-    try {
-      const response = await api.post('/parking', data);
-      return response;
-    } catch (error) {
-      console.error('Error creating parking slot:', error);
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Error response data:', error.response.data);
-        console.error('Error status:', error.response.status);
-        console.error('Error headers:', error.response.headers);
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('Error request:', error.request);
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error message:', error.message);
-      }
-      throw error;
-    }
-  },
+  create: (data) => api.post('/parking', data),
   update: (id, data) => api.put(`/parking/${id}`, data),
   delete: (id) => api.delete(`/parking/${id}`),
   getMySlots: () => api.get('/parking/my/slots'),
@@ -59,15 +59,7 @@ export const bookingAPI = {
   getById: (id) => api.get(`/bookings/${id}`),
   cancel: (id) => api.put(`/bookings/${id}/cancel`),
   complete: (id) => api.put(`/bookings/${id}/complete`),
-  getAnalytics: async (params = {}) => {
-    try {
-      const response = await api.get('/api/bookings/analytics', { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      throw error;
-    }
-  }
+  getAnalytics: (params = {}) => api.get('/bookings/analytics', { params }),
 };
 
 // Admin API
