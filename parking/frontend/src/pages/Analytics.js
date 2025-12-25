@@ -1,8 +1,7 @@
+// In frontend/src/pages/Analytics.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { bookingAPI } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, Clock, DollarSign, TrendingUp, ArrowLeft } from 'lucide-react';
+import { bookingAPI } from '../utils/api';
 import './Analytics.css';
 
 const Analytics = () => {
@@ -12,52 +11,37 @@ const Analytics = () => {
     bookings: [],
     totalRevenue: 0,
     totalBookings: 0,
-    activeBookings: 0,  // Added this line
-    averagePrice: 0,    // Added this line
-    averageOccupancy: 0,
+    activeBookings: 0,
+    averagePrice: 0,
+    currentOccupancy: 0
   });
-  const navigate = useNavigate();
-  useEffect(() => {
-      console.log('Analytics data updated:', analyticsData);
-    }, [analyticsData]);
-  // In Analytics.js, update the fetchAnalyticsData function
-const fetchAnalyticsData = useCallback(async () => {
+
+  const fetchAnalyticsData = useCallback(async () => {
   try {
     setLoading(true);
-    console.log('Fetching analytics...');
     const response = await bookingAPI.getAnalytics({ range: timeRange });
-    console.log('Analytics response:', response);
     
-    // Make sure we're accessing the data correctly from the response
-    const { data } = response;
-    console.log('Analytics data:', data);
+    if (response.data?.data) {
+      const { chartData, stats } = response.data.data;
+      
+      // Transform the data for the chart
+      const transformedData = chartData.map(item => ({
+        name: item.name,
+        bookings: Number(item.bookings) || 0,
+        revenue: Number(item.revenue) || 0
+      }));
 
-    // Process the data for the chart
-    const chartData = Array.isArray(data.bookings) ? data.bookings.map(booking => ({
-      date: booking.startTime || booking.date,
-      count: 1,
-      revenue: booking.totalPrice || 0
-    })) : [];
-
-    setAnalyticsData({
-      bookings: chartData,
-      totalRevenue: data.totalRevenue || 0,
-      totalBookings: data.totalBookings || 0,
-      activeBookings: data.activeBookings || 0,
-      averagePrice: data.averagePrice || 0,
-      averageOccupancy: data.averageOccupancy || 0
-    });
+      setAnalyticsData({
+        bookings: transformedData,
+        totalRevenue: Number(stats.totalRevenue) || 0,
+        totalBookings: Number(stats.totalBookings) || 0,
+        activeBookings: Number(stats.activeBookings) || 0,
+        averagePrice: Number(stats.averagePrice) || 0,
+        currentOccupancy: Number(stats.currentOccupancy) || 0
+      });
+    }
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    setAnalyticsData(prev => ({
-      ...prev,
-      bookings: [],
-      totalRevenue: 0,
-      totalBookings: 0,
-      activeBookings: 0,
-      averagePrice: 0,
-      averageOccupancy: 0
-    }));
   } finally {
     setLoading(false);
   }
@@ -65,123 +49,122 @@ const fetchAnalyticsData = useCallback(async () => {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, [fetchAnalyticsData]);
+  }, [fetchAnalyticsData, timeRange]);
 
-  const formatXAxis = (item) => {
-    if (timeRange === 'day') {
-      return new Date(item).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (timeRange === 'week') {
-      return new Date(item).toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return new Date(item).toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  };
+  // Format tooltip based on time range
+  // const formatTooltip = (value, name) => {
+  //   if (name === 'revenue') {
+  //     return [`₹${Number(value).toFixed(2)}`, 'Revenue'];
+  //   }
+  //   return [value, 'Bookings'];
+  // };
+
+  // Format x-axis label based on time range
+  // const formatXAxis = (tick) => {
+  //   if (timeRange === 'day') {
+  //     return tick;
+  //   } else if (timeRange === 'week') {
+  //     return tick;
+  //   }
+  //   return tick;
+  // };
 
   return (
     <div className="analytics-container">
       <div className="analytics-header">
-        <button onClick={() => navigate(-1)} className="back-button">
-          <ArrowLeft size={20} /> Back to Dashboard
-        </button>
-        <h1>Parking Analytics</h1>
+        <h1 className="analytics-title">Booking Analytics</h1>
         <div className="time-range-selector">
-          <button 
+          <button
             className={`time-range-btn ${timeRange === 'day' ? 'active' : ''}`}
             onClick={() => setTimeRange('day')}
           >
-            <Clock size={16} /> Daily
+            Today
           </button>
-          <button 
+          <button
             className={`time-range-btn ${timeRange === 'week' ? 'active' : ''}`}
             onClick={() => setTimeRange('week')}
           >
-            <Calendar size={16} /> Weekly
+            This Week
           </button>
-          <button 
+          <button
             className={`time-range-btn ${timeRange === 'month' ? 'active' : ''}`}
             onClick={() => setTimeRange('month')}
           >
-            <Calendar size={16} /> Monthly
+            This Month
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="loading">Loading analytics data...</div>
-      ) : (
-        <>
-          <div className="stats-grid">
-  <div className="stat-card">
-    <div className="stat-icon">
-      <DollarSign />
-    </div>
-    <div className="stat-details">
-      <h3>Total Revenue</h3>
-      <p>₹{analyticsData.totalRevenue?.toFixed(2) || '0.00'}</p>
-    </div>
-  </div>
-  <div className="stat-card">
-    <div className="stat-icon">
-      <Calendar />
-    </div>
-    <div className="stat-details">
-      <h3>Total Bookings</h3>
-      <p>{analyticsData.totalBookings}</p>
-    </div>
-  </div>
-  <div className="stat-card">
-    <div className="stat-icon">
-      <TrendingUp />
-    </div>
-    <div className="stat-details">
-      <h3>Active Bookings</h3>
-      <p>{analyticsData.activeBookings}</p>
-    </div>
-  </div>
-  <div className="stat-card">
-    <div className="stat-icon">
-      <DollarSign />
-    </div>
-    <div className="stat-details">
-      <h3>Avg. Price</h3>
-      <p>₹{analyticsData.averagePrice?.toFixed(2) || '0.00'}</p>
-    </div>
-  </div>
-</div>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Bookings</h3>
+          <p className="value">{analyticsData.totalBookings}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Total Revenue</h3>
+          <p className="value currency">₹{analyticsData.totalRevenue.toFixed(2)}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Active Bookings</h3>
+          <p className="value">{analyticsData.activeBookings}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Average Price</h3>
+          <p className="value">₹{analyticsData.averagePrice.toFixed(2)}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Current Occupancy</h3>
+          <p className="value">{analyticsData.currentOccupancy}%</p>
+        </div>
+      </div>
 
-          <div className="chart-container">
-            <h2>{timeRange === 'day' ? 'Today' : timeRange === 'week' ? 'This Week' : 'This Month'}'s Bookings</h2>
-            <div className="chart-wrapper">
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart
-            data={analyticsData.bookings}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="date" 
-              tickFormatter={formatXAxis}
-              tick={{ fill: '#4a5568' }}
-            />
-            <YAxis yAxisId="left" orientation="left" stroke="#4299e1" />
-            <YAxis yAxisId="right" orientation="right" stroke="#48bb78" />
-            <Tooltip 
-              formatter={(value, name) => {
-                if (name === 'Bookings') return [value, name];
-                if (name === 'Revenue') return [`₹${value}`, name];
-                return [value, name];
-              }}
-              labelFormatter={formatXAxis}
-            />
-            <Legend />
-            <Bar yAxisId="left" dataKey="count" name="Bookings" fill="#4299e1" />
-            <Bar yAxisId="right" dataKey="revenue" name="Revenue (₹)" fill="#48bb78" />
-          </BarChart>
-              </ResponsiveContainer>
-            </div>
+      <div className="chart-container">
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : (
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+  data={analyticsData.bookings}
+  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+>
+  <CartesianGrid strokeDasharray="3 3" />
+  <XAxis 
+    dataKey="name"
+    angle={-45}
+    textAnchor="end"
+    height={60}
+    tick={{ fontSize: 12 }}
+  />
+  <YAxis yAxisId="left" />
+  <YAxis yAxisId="right" orientation="right" />
+  <Tooltip 
+    formatter={(value) => {
+        if (value === 'bookings') return 'Bookings';
+        if (value === 'revenue') return 'Revenue (₹)';
+        return value;
+      }}
+  />
+  <Legend />
+  <Bar
+    yAxisId="left"
+    dataKey="bookings"
+    name="Bookings"
+    fill="#4299e1"
+    barSize={20}
+  />
+  <Bar
+    yAxisId="right"
+    dataKey="revenue"
+    name="Revenue (₹)"
+    fill="#48bb78"
+    barSize={20}
+  />
+</BarChart>
+            </ResponsiveContainer>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 };

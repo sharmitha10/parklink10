@@ -1,141 +1,223 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
 const ParkingSlot = require('../models/ParkingSlot');
+const { authMiddleware } = require('../middleware/auth'); // Make sure this is destructured if needed
 
-// @route   GET /api/bookings/my
-// @desc    Get user's bookings
-// @access  Private
 // @route   GET /api/bookings/analytics
 // @desc    Get booking analytics
 // @access  Private
+// In backend/routes/bookings.js
+// In backend/routes/bookings.js - Update the analytics endpoint
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
-    console.log('=== Analytics Request ===');
     const { range = 'day', date } = req.query;
-    console.log('Range:', range, 'Date:', date);
-
-    // Set start and end of the day in IST (UTC+5:30)
-    const now = date ? new Date(date) : new Date();
-    const startDate = new Date(now);
-    const endDate = new Date(now);
+    const user = await User.findById(req.user.userId);
     
-    // Set start time to 00:00:00 IST (18:30:00 previous day UTC)
-    startDate.setUTCHours(18, 30, 0, 0);
-    if (now.getUTCHours() < 18) {
-      startDate.setUTCDate(startDate.getUTCDate() - 1);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    // Get all parking slots owned by this admin
+    const adminSlots = await ParkingSlot.find({ owner: user._id });
+    const slotIds = adminSlots.map(slot => slot._id);
+
+    // Set up date range
+    let startDate, endDate;
+    const now = date ? new Date(date) : new Date();
     
-    // Set end time to 23:59:59.999 IST (18:29:59.999 next day UTC)
-    endDate.setUTCHours(18, 29, 59, 999);
-    endDate.setUTCDate(endDate.getUTCDate() + 1);
+    if (range === 'day') {
+      startDate = new Date(now);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setUTCHours(23, 59, 59, 999);
+    } else if (range === 'week') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - now.getDay()); // Start of week
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6); // End of week
+      endDate.setUTCHours(23, 59, 59, 999);
+    } else { // month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      endDate.setUTCHours(23, 59, 59, 999);
+    }
 
-    console.log('IST Date Range:', {
-      start: startDate.toISOString(),
-      end: endDate.toISOString()
-    });
-
-    // First, get all completed and active bookings in the date range
+    // Get all bookings for admin's slots in the date range
     const bookings = await Booking.find({
-      startTime: { 
-        $gte: startDate,
-        $lte: endDate
-      },
-      status: { $in: ['completed', 'active', 'confirmed'] }
-    })
-    .sort({ startTime: 1 })
-    .lean();
+      parkingSlot: { $in: slotIds },
+      status: { $in: ['confirmed', 'active', 'completed'] },
+      startTime: { $lte: endDate },
+      endTime: { $gte: startDate }
+    }).populate('parkingSlot', 'pricePerHour');
 
-    console.log(`Found ${bookings.length} bookings in range`);
-
-    // Calculate analytics
+    // Initialize data structures
+    let chartData = [];
+    let totalBookings = 0;
     let totalRevenue = 0;
     let activeBookings = 0;
-    const groupedBookings = {};
-    const slotOccupancy = {}; // Track slot occupancy for average calculation
+    const nowTime = new Date();
 
-    // First pass: calculate totals and group data
-    bookings.forEach(booking => {
-      // Count active bookings
-      if (booking.status === 'active') {
+    if (range === 'day') {
+  // For day view, show hourly data
+  const hourlyBookings = Array(24).fill(0);
+  const hourlyRevenue = Array(24).fill(0);
+  const nowTime = new Date();
+  const today = new Date(nowTime);
+  today.setHours(0, 0, 0, 0);
+
+  bookings.forEach(booking => {
+    const start = new Date(booking.startTime);
+    const end = new Date(booking.endTime);
+    
+    // Only process if booking is for today
+    if (start.toDateString() === today.toDateString()) {
+      // Count as active if booking spans current time
+      if (start <= nowTime && end >= nowTime) {
         activeBookings++;
       }
-      
-      // Add to total revenue
-      if (booking.totalPrice) {
-        totalRevenue += Number(booking.totalPrice);
-      }
 
-      // Track slot occupancy
-      const slotId = booking.parkingSlot?.toString() || 'unknown';
-      if (!slotOccupancy[slotId]) {
-        slotOccupancy[slotId] = 0;
-      }
-      slotOccupancy[slotId]++;
+      // Calculate booking duration in hours
+      const durationHours = (end - start) / (1000 * 60 * 60);
+      const pricePerHour = booking.parkingSlot?.pricePerHour || 0;
+      const bookingRevenue = durationHours * pricePerHour;
+      totalRevenue += bookingRevenue;
+      totalBookings++;
 
-      // Group bookings by time range
-      let key;
-      const bookingDate = new Date(booking.startTime);
+      // Get the hour of the booking start time
+      const startHour = start.getHours();
+      const endHour = Math.min(end.getHours(), 23); // Cap at 23:59
       
-      if (range === 'day') {
-        key = bookingDate.toISOString().substring(0, 13); // Group by hour
-      } else if (range === 'week') {
-        key = bookingDate.toISOString().split('T')[0]; // Group by day
-      } else {
-        key = bookingDate.toISOString().substring(0, 7); // Group by month
+      // Distribute booking across hours
+      for (let hour = startHour; hour <= endHour; hour++) {
+        hourlyBookings[hour]++;
+        // Calculate revenue for this hour (proportional if booking spans multiple hours)
+        const hourEnd = Math.min(hour + 1, 24);
+        const hourStart = Math.max(hour, start.getHours());
+        const hourDuration = Math.min(hourEnd, end.getHours() + (end.getMinutes() / 60)) - 
+                           Math.max(hourStart, start.getHours() + (start.getMinutes() / 60));
+        hourlyRevenue[hour] += (hourDuration * pricePerHour);
       }
-      
-      if (!groupedBookings[key]) {
-        groupedBookings[key] = {
-          date: bookingDate,
-          count: 0,
-          revenue: 0
-        };
-      }
-      
-      groupedBookings[key].count += 1;
-      groupedBookings[key].revenue += booking.totalPrice || 0;
-    });
+    }
+  });
 
-    // Calculate average occupancy
-    const totalSlots = await ParkingSlot.countDocuments();
-    const averageOccupancy = totalSlots > 0 
-      ? (Object.keys(slotOccupancy).length / totalSlots) * 100 
-      : 0;
+  // Format chart data
+  chartData = Array(24).fill().map((_, hour) => {
+    const hourStr = hour.toString().padStart(2, '0') + ':00';
+    return {
+      name: hourStr,
+      bookings: hourlyBookings[hour],
+      revenue: Math.round(hourlyRevenue[hour] * 100) / 100
+    };
+  });
+}
 
-    // Calculate metrics
-    const totalBookings = bookings.length;
+     else if (range === 'week') {
+      // For week view, show daily data
+      const dailyBookings = Array(7).fill(0);
+      const dailyRevenue = Array(7).fill(0);
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      bookings.forEach(booking => {
+        const start = new Date(booking.startTime);
+        const end = new Date(booking.endTime);
+        
+        if (start <= nowTime && end >= nowTime) {
+          activeBookings++;
+        }
+
+        const durationHours = (end - start) / (1000 * 60 * 60);
+        const pricePerHour = booking.parkingSlot?.pricePerHour || 0;
+        const bookingRevenue = durationHours * pricePerHour;
+        totalRevenue += bookingRevenue;
+        totalBookings++;
+
+        const dayOfWeek = start.getDay();
+        dailyBookings[dayOfWeek]++;
+        dailyRevenue[dayOfWeek] += bookingRevenue;
+      });
+
+      chartData = Array(7).fill().map((_, day) => ({
+        name: dayNames[day],
+        bookings: dailyBookings[day],
+        revenue: Number(dailyRevenue[day].toFixed(2))
+      }));
+
+    }else if (range === 'month') {
+  // For month view, show weekly data
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  // Calculate the number of weeks in the month
+  const firstWeekDay = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const daysInMonth = lastDay.getDate();
+  const weeksInMonth = Math.ceil((firstWeekDay + daysInMonth) / 7);
+  
+  const weeklyBookings = Array(weeksInMonth).fill(0);
+  const weeklyRevenue = Array(weeksInMonth).fill(0);
+  const weekStarts = Array(weeksInMonth).fill().map((_, i) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), 1 + (i * 7) - firstWeekDay);
+    return date;
+  });
+  bookings.forEach(booking => {
+    const start = new Date(booking.startTime);
+    const end = new Date(booking.endTime);
+    
+    // Count as active if booking spans current time
+    if (start <= nowTime && end >= nowTime) {
+      activeBookings++;
+    }
+    // Calculate booking duration in hours
+    const durationHours = (end - start) / (1000 * 60 * 60);
+    const pricePerHour = booking.parkingSlot?.pricePerHour || 0;
+    const bookingRevenue = durationHours * pricePerHour;
+    totalRevenue += bookingRevenue;
+    totalBookings++;
+    // Find which week this booking belongs to
+    const bookingDate = new Date(booking.startTime);
+    const weekOfMonth = Math.floor((bookingDate.getDate() + firstWeekDay - 1) / 7);
+    const weekIndex = Math.min(weekOfMonth, weeksInMonth - 1);
+    
+    weeklyBookings[weekIndex]++;
+    weeklyRevenue[weekIndex] += bookingRevenue;
+  });
+  // Format chart data
+  chartData = Array(weeksInMonth).fill().map((_, week) => {
+    const startDate = new Date(weekStarts[week]);
+    const endDate = new Date(weekStarts[Math.min(week + 1, weeksInMonth - 1)]);
+    
+    return {
+      name: `Week ${week + 1} (${startDate.getDate()}/${startDate.getMonth() + 1} - ${endDate.getDate()}/${endDate.getMonth() + 1})`,
+      bookings: weeklyBookings[week],
+      revenue: Math.round(weeklyRevenue[week] * 100) / 100
+    };
+  });
+}
+
+    // Calculate statistics
     const averagePrice = totalBookings > 0 
-      ? (totalRevenue / totalBookings).toFixed(2) 
+      ? Number((totalRevenue / totalBookings).toFixed(2))
       : 0;
 
-    console.log('Calculated metrics:', {
-      totalBookings,
-      totalRevenue,
-      activeBookings,
-      averagePrice,
-      averageOccupancy,
-      totalSlots,
-      occupiedSlots: Object.keys(slotOccupancy).length
-    });
+    const currentOccupancy = slotIds.length > 0
+      ? Math.min(100, Math.round((activeBookings / slotIds.length) * 100))
+      : 0;
 
-    // Convert groupedBookings to array for the frontend
-    const bookingsArray = Object.entries(groupedBookings).map(([key, value]) => ({
-      date: value.date,
-      count: value.count,
-      revenue: value.revenue
-    }));
-
-    // Send response
     res.json({
       success: true,
-      bookings: bookingsArray,
-      totalRevenue: Number(totalRevenue.toFixed(2)),
-      totalBookings,
-      activeBookings,
-      averagePrice: Number(averagePrice),
-      averageOccupancy: Number(averageOccupancy.toFixed(2))
+      data: {
+        chartData,
+        stats: {
+          totalBookings,
+          totalRevenue: Number(totalRevenue.toFixed(2)),
+          activeBookings,
+          averagePrice,
+          currentOccupancy
+        }
+      }
     });
 
   } catch (err) {
@@ -147,7 +229,6 @@ router.get('/analytics', authMiddleware, async (req, res) => {
     });
   }
 });
-
 // @route   POST /api/bookings
 // @desc    Create a new booking
 // @access  Private
@@ -178,6 +259,13 @@ router.post('/', authMiddleware, async (req, res) => {
     const duration = Math.ceil((end - start) / (1000 * 60 * 60)); // in hours
     const totalPrice = duration * parkingSlot.pricePerHour;
 
+    console.log('Creating booking with:', {
+      parkingSlotId,
+      pricePerHour: parkingSlot.pricePerHour,
+      duration,
+      totalPrice
+    });
+
     // Create booking
     const booking = new Booking({
       user: req.user.userId,
@@ -190,6 +278,8 @@ router.post('/', authMiddleware, async (req, res) => {
       totalPrice,
       status: 'confirmed'
     });
+
+  
 
     await booking.save();
 
@@ -306,6 +396,24 @@ router.get('/all-bookings', authMiddleware, async (req, res) => {
     console.error('Error fetching all bookings:', err);
     res.status(500).json({ 
       message: 'Error fetching bookings',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+// @route   GET /api/bookings/my
+// @desc    Get user's bookings
+// @access  Private
+router.get('/my', authMiddleware, async (req, res) => {
+  try {
+    const bookings = await Booking.find({ user: req.user.userId })
+      .populate('parkingSlot', 'name address location pricePerHour')
+      .sort({ startTime: -1 });
+    
+    res.json(bookings);
+  } catch (err) {
+    console.error('Error fetching user bookings:', err);
+    res.status(500).json({ 
+      message: 'Failed to fetch bookings',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

@@ -1,186 +1,185 @@
+/* Analytics.css */
 .analytics-container {
+  padding: 1.5rem;
   max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  margin: 0 auto;
 }
 
 .analytics-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
 
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: none;
-  border: 1px solid #e2e8f0;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #4a5568;
-  transition: all 0.2s;
-}
-
-.back-button:hover {
-  background-color: #f7fafc;
-  border-color: #cbd5e0;
+.analytics-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a202c;
 }
 
 .time-range-selector {
   display: flex;
   gap: 0.5rem;
-  margin: 1rem 0;
-  flex-wrap: wrap;
+  background-color: #f7fafc;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .time-range-btn {
   padding: 0.5rem 1rem;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #4a5568;
   transition: all 0.2s;
-}
-
-.time-range-btn:hover {
-  background-color: #f7fafc;
+  background: transparent;
+  color: #4a5568;
 }
 
 .time-range-btn.active {
-  background-color: #4299e1;
-  color: white;
-  border-color: #4299e1;
+  background: white;
+  color: #4299e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
   background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
   border-left: 4px solid #4299e1;
 }
 
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ebf8ff;
-  color: #3182ce;
-  flex-shrink: 0;
-}
-
-.stat-details h3 {
-  margin: 0;
+.stat-card h3 {
   font-size: 0.875rem;
   color: #718096;
+  margin: 0 0 0.5rem 0;
   font-weight: 500;
 }
 
-.stat-details p {
-  margin: 0.25rem 0 0;
+.stat-card .value {
   font-size: 1.5rem;
   font-weight: 600;
   color: #2d3748;
+  margin: 0;
+}
+
+.stat-card .value.currency {
+  color: #48bb78;
 }
 
 .chart-container {
+  width: 100%;
+  height: 500px;
   background: white;
   border-radius: 8px;
-  padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-}
-
-.chart-container h2 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  color: #2d3748;
-  font-size: 1.25rem;
+  padding: 20px;
+  margin-top: 20px;
 }
 
 .chart-wrapper {
   width: 100%;
-  height: 400px;
+  height: 100%;
+  min-height: 400px;
+  position: relative;
 }
 
-.loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-  color: #718096;
-  font-size: 1.1rem;
+/* Recharts overrides */
+.recharts-cartesian-axis-tick text {
+  font-size: 0.75rem;
+  fill: #718096;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .analytics-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .time-range-selector {
-    width: 100%;
-    margin-top: 1rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .chart-wrapper {
-    height: 300px;
-  }
+.recharts-cartesian-grid line {
+  stroke: #e2e8f0;
 }
 
-/* Tooltip styling */
 .recharts-tooltip {
   background: white !important;
   border: 1px solid #e2e8f0 !important;
-  border-radius: 4px !important;
+  border-radius: 0.375rem !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   padding: 0.5rem !important;
 }
 
 .recharts-tooltip-label {
-  color: #4a5568 !important;
-  font-weight: 600 !important;
-  margin-bottom: 0.5rem !important;
+  color: #4a5568;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
 }
 
 .recharts-tooltip-item {
   color: #4a5568 !important;
-  font-size: 0.875rem !important;
 }
 
-/* Legend styling */
+.recharts-legend-wrapper {
+  bottom: -10px !important;
+}
+
 .recharts-legend-item {
-  margin-right: 1rem !important;
+  display: inline-flex !important;
+  align-items: center;
+  margin-right: 1.5rem !important;
+  cursor: pointer;
 }
 
 .recharts-legend-item-text {
   color: #4a5568 !important;
   font-size: 0.875rem !important;
+  margin-left: 0.5rem !important;
+  vertical-align: middle;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .time-range-selector {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .time-range-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart-container {
+    padding: 1rem;
+  }
+  
+  .recharts-legend-wrapper {
+    position: relative !important;
+    bottom: 0 !important;
+    margin-top: 1rem;
+  }
 }

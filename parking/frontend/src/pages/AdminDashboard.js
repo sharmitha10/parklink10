@@ -86,27 +86,9 @@ const AdminDashboard = () => {
         activeBookings: 23,
         dailyRevenue: 8640, // Pre-calculated
       };
-      const mockSlots = [
-        {
-          _id: '1',
-          name: 'Downtown Parking',
-          totalSlots: 50,
-          availableSlots: 12,
-          pricePerHour: 60,
-          isActive: true
-        },
-        {
-          _id: '2', 
-          name: 'Airport Parking',
-          totalSlots: 100,
-          availableSlots: 45,
-          pricePerHour: 80,
-          isActive: true
-        }
-      ];
+      
       
       setStats(mockStats);
-      setMySlots(mockSlots);
       setInitialLoad(false);
     } finally {
       setLoading(false);
@@ -244,7 +226,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="stat-card">
+          {/* <div className="stat-card">
             <div className="stat-icon" style={{ background: '#fef3c7' }}>
               <DollarSign size={32} color="#f59e0b" />
             </div>
@@ -252,7 +234,7 @@ const AdminDashboard = () => {
               <h3>₹{stats.dailyRevenue?.toFixed(2) || '0'}</h3>
               <p>{t.estDailyRevenue}</p>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Analytics Overview */}

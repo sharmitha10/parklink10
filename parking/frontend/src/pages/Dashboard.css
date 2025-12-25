@@ -124,51 +124,58 @@
   font-size: 16px;
 }
 
-/* Stats Grid */
+/* Update the stats grid to have 3 equal-width columns */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 24px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(3, 1fr); /* Makes 3 equal columns */
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
+/* Make the stat cards take full width of their grid cell */
 .stat-card {
-  background: var(--card-bg);
-  padding: 24px;
-  border-radius: 16px;
+  width: 100%; /* Take full width of grid cell */
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  gap: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border-color);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  gap: 1rem;
 }
 
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
+/* Adjust icon size and spacing */
 .stat-icon {
-  width: 64px;
-  height: 64px;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Make the content area take remaining space */
+.stat-content {
+  flex: 1;
+  min-width: 0; /* Prevents overflow */
+}
+
+/* Adjust text styles */
 .stat-content h3 {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--text-dark);
-  margin-bottom: 4px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: #1f2937;
 }
 
 .stat-content p {
-  color: var(--text-light);
-  font-size: 14px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
 }
+
+/* Responsive adjustments */
 
 /* Dashboard Section */
 .dashboard-section {
@@ -359,6 +366,9 @@
   .stats-grid {
     grid-template-columns: 1fr;
   }
+  .stat-card {
+    padding: 1.25rem;
+  }
 
   .booking-item {
     flex-direction: column;
@@ -503,4 +513,9 @@
   text-align: center;
   padding: 40px 20px;
   color: #6b7280;
+}
+@media (max-width: 1024px) {
+  .stats-grid {
+    gap: 1rem;
+  }
 }
