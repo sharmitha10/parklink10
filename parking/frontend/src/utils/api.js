@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from './auth';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
   timeout: 10000, // 10 second timeout
 });
 
@@ -44,7 +44,7 @@ api.interceptors.response.use(
 
 // Parking API
 export const parkingAPI = {
-  getAll: (params) => api.get('/parking', { params }),
+  getAll: (endpoint = '', params) => api.get(`/parking${endpoint}`, { params }),
   getById: (id) => api.get(`/parking/${id}`),
   create: (data) => api.post('/parking', data),
   update: (id, data) => api.put(`/parking/${id}`, data),

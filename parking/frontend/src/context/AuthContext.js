@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/users/profile');
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/users/profile`);
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, {
         email,
         password
       });
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       let errorMessage = 'Login failed';
       
       if (error.code === 'ERR_NETWORK') {
-        errorMessage = 'Cannot connect to server. Please ensure backend is running on port 5000.';
+        errorMessage = 'Cannot connect to server. Please ensure backend is running.';
       } else if (error.response) {
         // Server responded with error
         if (error.response.status === 400) {
@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', userData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/auth/register`, userData);
       
       const { token, user } = response.data;
       localStorage.setItem('token', token);
