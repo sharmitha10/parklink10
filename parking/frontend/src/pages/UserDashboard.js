@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { bookingAPI } from '../utils/api';
 import { MapPin, Calendar, Clock, TrendingUp, Car } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import { useAutoTranslate } from '../components/LanguageSwitcher';
 
 const UserDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -128,10 +130,10 @@ const UserDashboard = () => {
             <h1>{t.welcome}, {user?.name}! 👋</h1>
             <p>{t.subtitle}</p>
           </div>
-          <div className="btn btn-primary" style={{opacity: 0.5, cursor: "not-allowed"}}>
+          <button className="btn btn-primary" onClick={() => navigate('/find-parking')}>
             <MapPin size={20} />
-Map View (Disabled)
-          </div>
+            Map View
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -191,9 +193,10 @@ Map View (Disabled)
               <Car size={64} color="#d1d5db" />
               <h3>{t.noBookings}</h3>
               <p>{t.startParking}</p>
-              <div className="btn btn-primary" style={{opacity: 0.5, cursor: "not-allowed"}}>
-Map View (Disabled)
-              </div>
+              <button className="btn btn-primary" onClick={() => navigate('/find-parking')}>
+                <MapPin size={20} />
+                Map View
+              </button>
             </div>
           ) : (
             <div className="bookings-list">
@@ -235,12 +238,12 @@ Map View (Disabled)
         <div className="quick-actions">
           <h2>{t.quickActions}</h2>
           <div className="action-grid">
-            <div className="action-card" style={{opacity: 0.5, cursor: "not-allowed"}}>
+            <div className="action-card" onClick={() => navigate('/find-parking')} style={{cursor: "pointer"}}>
               <MapPin size={32} />
-              <h3>Map View (Disabled)</h3>
-              <p>Map functionality is currently disabled</p>
+              <h3>Map View</h3>
+              <p>Find parking spots near you</p>
             </div>
-            <div className="action-card">
+            <div className="action-card" onClick={() => navigate('/my-bookings')} style={{cursor: "pointer"}}>
               <Calendar size={32} />
               <h3>{t.myBookings}</h3>
               <p>{t.viewAll}</p>
