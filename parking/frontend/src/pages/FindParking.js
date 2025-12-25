@@ -20,6 +20,8 @@ const FindParking = () => {
     distance: tSync('Distance'),
     price: tSync('Price'),
     availability: tSync('Availability'),
+    vehicleType: tSync('Vehicle Type'),
+    any: tSync('Any'),
     noSlotsFound: tSync('No parking slots found in this area'),
     bookNow: tSync('Book Now'),
     navigateBtn: tSync('Navigate'),
@@ -37,9 +39,12 @@ const FindParking = () => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: 28.6139, lng: 77.2090 }); // Default: Delhi
   const [searchRadius, setSearchRadius] = useState(5);
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [filters, setFilters] = useState({
-    maxPrice: 100,
+    searchRadius: 5,
+    maxPrice: 500,
     sortBy: 'distance',
+    vehicleType: 'any',
   });
   const [bookedSlots, setBookedSlots] = useState([]);
   const [showRouteToSlot, setShowRouteToSlot] = useState(null);
@@ -57,25 +62,85 @@ const FindParking = () => {
   const fetchParkingSlots = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await parkingAPI.getAll({
+      const endpoint = showUnavailable ? '/all' : '';
+      const response = await parkingAPI.getAll(endpoint, {
         lat: userLocation.lat,
         lng: userLocation.lng,
-        radius: searchRadius,
+        radius: filters.searchRadius,
       });
       
       // Transform parking slots to have latitude and longitude properties
-      const transformedSlots = response.data.map(slot => ({
+      let transformedSlots = response.data.map(slot => ({
         ...slot,
         latitude: slot.latitude || (slot.location?.coordinates?.[1] || 0),
         longitude: slot.longitude || (slot.location?.coordinates?.[0] || 0)
       }));
-      setParkingSlots(transformedSlots);
+
+      // If showing all spots, separate available and unavailable
+      let availableSlots = showUnavailable 
+        ? transformedSlots 
+        : transformedSlots.filter(slot => slot.availableSlots > 0);
+
+      // Apply strict filters first
+      let filteredSlots = availableSlots.filter(slot => {
+        // Filter by max price
+        if (filters.maxPrice && slot.pricePerHour > filters.maxPrice) {
+          return false;
+        }
+        
+        // Filter by vehicle type - since there's no vehicleTypes field, skip this filter for now
+        // This can be implemented later when the backend supports vehicle types
+        
+        return true;
+      });
+
+      // If no results with strict filters, apply relaxed filters
+      if (filteredSlots.length === 0) {
+        console.log('No results with strict filters, applying relaxed filters...');
+        
+        filteredSlots = availableSlots.filter(slot => {
+          // Relax price filter - allow 20% higher than max price
+          if (filters.maxPrice && slot.pricePerHour > filters.maxPrice * 1.2) {
+            return false;
+          }
+          
+          return true;
+        });
+
+        // If still no results, show all available slots
+        if (filteredSlots.length === 0) {
+          console.log('Still no results, showing all available slots...');
+          filteredSlots = availableSlots;
+        }
+      }
+
+      // Sort the results
+      filteredSlots.sort((a, b) => {
+        if (filters.sortBy === 'price') {
+          return a.pricePerHour - b.pricePerHour;
+        } else if (filters.sortBy === 'availability') {
+          return b.availableSlots - a.availableSlots;
+        } else {
+          // Default: sort by distance (calculate approximate distance)
+          const distanceA = Math.sqrt(
+            Math.pow(a.latitude - userLocation.lat, 2) + 
+            Math.pow(a.longitude - userLocation.lng, 2)
+          );
+          const distanceB = Math.sqrt(
+            Math.pow(b.latitude - userLocation.lat, 2) + 
+            Math.pow(b.longitude - userLocation.lng, 2)
+          );
+          return distanceA - distanceB;
+        }
+      });
+
+      setParkingSlots(filteredSlots);
     } catch (error) {
       console.error('Error fetching parking slots:', error);
     } finally {
       setLoading(false);
     }
-  }, [userLocation, searchRadius]);
+  }, [userLocation, filters, showUnavailable]);
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -172,7 +237,7 @@ const FindParking = () => {
     if (userLocation) {
       fetchParkingSlots();
     }
-  }, [userLocation, searchRadius, fetchParkingSlots]);
+  }, [userLocation, filters, fetchParkingSlots]);
 
   if (loading) {
     return (
@@ -202,6 +267,20 @@ const FindParking = () => {
               </button>
             </div>
             <p>{parkingSlots.length} {t.spotsAvailable}</p>
+            
+            {/* Toggle for showing unavailable spots */}
+            <div className="show-unavailable-toggle">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={showUnavailable}
+                  onChange={(e) => setShowUnavailable(e.target.checked)}
+                  className="toggle-input"
+                />
+                <span className="toggle-slider"></span>
+                <span className="toggle-text">Show unavailable spots</span>
+              </label>
+            </div>
           </div>
 
           {/* Filters */}
@@ -212,26 +291,27 @@ const FindParking = () => {
             </h3>
             
             <div className="filter-group">
-              <label>{t.searchRadius}: {searchRadius} km</label>
+              <label>{t.searchRadius} (km)</label>
               <input
-                type="range"
+                type="number"
                 min="1"
                 max="20"
-                value={searchRadius}
-                onChange={(e) => setSearchRadius(Number(e.target.value))}
-                className="slider"
+                value={filters.searchRadius}
+                onChange={(e) => setFilters({ ...filters, searchRadius: Number(e.target.value) })}
+                placeholder="e.g., 5"
+                className="filter-input"
               />
             </div>
 
             <div className="filter-group">
-              <label>{t.maxPrice}: ₹{filters.maxPrice}/hr</label>
+              <label>{t.maxPrice} (/hr)</label>
               <input
-                type="range"
+                type="number"
                 min="10"
-                max="500"
+                max="1000"
                 value={filters.maxPrice}
                 onChange={(e) => setFilters({ ...filters, maxPrice: Number(e.target.value) })}
-                className="slider"
+                className="filter-input"
               />
             </div>
 
@@ -240,10 +320,26 @@ const FindParking = () => {
               <select
                 value={filters.sortBy}
                 onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                className="filter-select"
               >
                 <option value="distance">{t.distance}</option>
                 <option value="price">{t.price}</option>
                 <option value="availability">{t.availability}</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>{t.vehicleType}</label>
+              <select
+                value={filters.vehicleType}
+                onChange={(e) => setFilters({ ...filters, vehicleType: e.target.value })}
+                className="filter-select"
+              >
+                <option value="any">{t.any}</option>
+                <option value="car">Car</option>
+                <option value="bike">Bike</option>
+                <option value="suv">SUV</option>
+                <option value="truck">Truck</option>
               </select>
             </div>
           </div>
@@ -254,16 +350,16 @@ const FindParking = () => {
               parkingSlots.map((slot) => (
                 <div 
                   key={slot._id} 
-                  className={`parking-slot-card ${selectedSlot?._id === slot._id ? 'selected' : ''}`}
+                  className={`parking-slot-card ${selectedSlot?._id === slot._id ? 'selected' : ''} ${slot.availableSlots === 0 ? 'unavailable' : ''}`}
                   onClick={() => handleSlotClick(slot)}
                 >
                   <div className="slot-header">
                     <h4>{slot.name}</h4>
                     <span 
-                      className="availability-badge"
+                      className={`availability-badge ${slot.availableSlots === 0 ? 'unavailable-badge' : ''}`}
                       style={{ backgroundColor: getAvailabilityColor(slot.availableSlots, slot.totalSlots) }}
                     >
-                      {slot.availableSlots}/{slot.totalSlots} {t.available}
+                      {slot.availableSlots === 0 ? 'Unavailable' : `${slot.availableSlots}/${slot.totalSlots} ${t.available}`}
                     </span>
                   </div>
                   
@@ -302,14 +398,16 @@ const FindParking = () => {
                       {t.navigateBtn}
                     </button>
                     <button
-                      className="btn btn-primary btn-sm"
+                      className={`btn btn-sm ${slot.availableSlots === 0 ? 'btn-disabled' : 'btn-primary'}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleBookNow(slot);
+                        if (slot.availableSlots > 0) {
+                          handleBookNow(slot);
+                        }
                       }}
                       disabled={slot.availableSlots === 0}
                     >
-                      {t.bookNow}
+                      {slot.availableSlots === 0 ? 'Unavailable' : t.bookNow}
                     </button>
                   </div>
                 </div>

@@ -7,6 +7,8 @@ import './App.css';
 // Pages
 import Home from './pages/Home';
 import Login from './pages/Login';
+import LoginSelector from './pages/LoginSelector';
+import AdminLogin from './pages/AdminLogin';
 import Register from './pages/Register';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -26,7 +28,7 @@ console.log("ENV TEST:", process.env.REACT_APP_API_URL);
 function AppContent() {
   const location = useLocation();
   // List of routes where Navbar should be hidden
-  const hideNavbarPaths = ['/login', '/register'];
+  const hideNavbarPaths = ['/login', '/user-login', '/admin-login', '/register'];
   const shouldShowNavbar = !hideNavbarPaths.includes(location.pathname);
 
   return (
@@ -35,7 +37,9 @@ function AppContent() {
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
+                    <Route path="/login" element={<LoginSelector />} />
+          <Route path="/user-login" element={<Login />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/register" element={<Register />} />
           
           {/* User Routes */}

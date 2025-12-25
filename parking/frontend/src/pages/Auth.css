@@ -62,6 +62,19 @@
   margin-bottom: 24px;
 }
 
+.login-selector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.btn-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .auth-form .input-group label {
   display: flex;
   align-items: center;
@@ -87,6 +100,16 @@
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.btn-primary.btn-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+}
+
+.btn-secondary.btn-block:hover {
+  background-color: var(--secondary-color);
+  color: white;
 }
 
 .btn-block {

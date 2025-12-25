@@ -3,14 +3,49 @@ const router = express.Router();
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const ParkingSlot = require('../models/ParkingSlot');
 
+// @route   GET /api/parking/all
+// @desc    Get all parking slots (including unavailable)
+// @access  Public
+router.get('/all', async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+
+    let query = { isActive: true };
+
+    // If location is provided, find nearby parking slots
+    if (lat && lng) {
+      const radiusInMeters = radius ? parseFloat(radius) * 1000 : 5000; // default 5km
+      
+      query.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: radiusInMeters
+        }
+      };
+    }
+
+    const parkingSlots = await ParkingSlot.find(query)
+      .populate('owner', 'name email phone')
+      .sort({ createdAt: -1 });
+
+    res.json(parkingSlots);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/parking
-// @desc    Get all parking slots
+// @desc    Get available parking slots only
 // @access  Public
 router.get('/', async (req, res) => {
   try {
     const { lat, lng, radius } = req.query;
 
-    let query = { isActive: true };
+    let query = { isActive: true, availableSlots: { $gt: 0 } };
 
     // If location is provided, find nearby parking slots
     if (lat && lng) {
