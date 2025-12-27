@@ -32,19 +32,28 @@ const FindParking = () => {
     amenities: tSync('Amenities'),
   });
 
+  // Vehicle type presets (same as admin side)
+  const VEHICLE_PRESETS = [
+    { name: 'Motorcycle', dimensions: { length: 8, width: 4, height: 0 } },
+    { name: 'Compact Car', dimensions: { length: 16, width: 8, height: 0 } },
+    { name: 'Standard Car', dimensions: { length: 18, width: 9, height: 0 } },
+    { name: 'Large Vehicle', dimensions: { length: 20, width: 10, height: 0 } },
+    { name: 'Truck/Bus', dimensions: { length: 40, width: 12, height: 0 } },
+    { name: 'Custom', dimensions: { length: 0, width: 0, height: 0 } }
+  ];
+
   // State declarations first
   const [parkingSlots, setParkingSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [userLocation, setUserLocation] = useState({ lat: 28.6139, lng: 77.2090 }); // Default: Delhi
-  const [searchRadius, setSearchRadius] = useState(5);
+  const [userLocation, setUserLocation] = useState({ lat: 11.2733, lng: 77.6070 }); // Default: Erode, Tamil Nadu
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [filters, setFilters] = useState({
-    searchRadius: 5,
+    searchRadius: 1000,
     maxPrice: 500,
     sortBy: 'distance',
-    vehicleType: 'any',
+    vehicleType: 'Standard Car',
   });
   const [bookedSlots, setBookedSlots] = useState([]);
   const [showRouteToSlot, setShowRouteToSlot] = useState(null);
@@ -76,7 +85,8 @@ const FindParking = () => {
         longitude: slot.longitude || (slot.location?.coordinates?.[0] || 0)
       }));
 
-      // If showing all spots, separate available and unavailable
+      // If showing all spots, include both available and unavailable
+      // If not showing all spots, only include available ones
       let availableSlots = showUnavailable 
         ? transformedSlots 
         : transformedSlots.filter(slot => slot.availableSlots > 0);
@@ -88,14 +98,26 @@ const FindParking = () => {
           return false;
         }
         
-        // Filter by vehicle type - since there's no vehicleTypes field, skip this filter for now
-        // This can be implemented later when the backend supports vehicle types
+        // Filter by vehicle type based on slot dimensions
+        if (filters.vehicleType !== 'Custom') {
+          const selectedPreset = VEHICLE_PRESETS.find(preset => preset.name === filters.vehicleType);
+          if (selectedPreset) {
+            // Check if slot can accommodate the selected vehicle type
+            const slotLength = slot.slotDimensions?.length || 0;
+            const slotWidth = slot.slotDimensions?.width || 0;
+            
+            if (slotLength < selectedPreset.dimensions.length || 
+                slotWidth < selectedPreset.dimensions.width) {
+              return false;
+            }
+          }
+        }
         
         return true;
       });
 
       // If no results with strict filters, apply relaxed filters
-      if (filteredSlots.length === 0) {
+      if (filteredSlots.length === 0 && !showUnavailable) {
         console.log('No results with strict filters, applying relaxed filters...');
         
         filteredSlots = availableSlots.filter(slot => {
@@ -266,7 +288,7 @@ const FindParking = () => {
                 Update Location
               </button>
             </div>
-            <p>{parkingSlots.length} {t.spotsAvailable}</p>
+            <p>{parkingSlots.length} {showUnavailable ? 'total spots' : t.spotsAvailable}</p>
             
             {/* Toggle for showing unavailable spots */}
             <div className="show-unavailable-toggle">
@@ -295,10 +317,10 @@ const FindParking = () => {
               <input
                 type="number"
                 min="1"
-                max="20"
+                max="1000"
                 value={filters.searchRadius}
                 onChange={(e) => setFilters({ ...filters, searchRadius: Number(e.target.value) })}
-                placeholder="e.g., 5"
+                placeholder="e.g., 1000"
                 className="filter-input"
               />
             </div>
@@ -335,11 +357,11 @@ const FindParking = () => {
                 onChange={(e) => setFilters({ ...filters, vehicleType: e.target.value })}
                 className="filter-select"
               >
-                <option value="any">{t.any}</option>
-                <option value="car">Car</option>
-                <option value="bike">Bike</option>
-                <option value="suv">SUV</option>
-                <option value="truck">Truck</option>
+                {VEHICLE_PRESETS.map(preset => (
+                  <option key={preset.name} value={preset.name}>
+                    {preset.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
