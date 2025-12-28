@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parkingAPI } from '../utils/api';
 import { useAutoTranslate } from '../components/LanguageSwitcher';
@@ -33,22 +33,22 @@ const FindParking = () => {
   });
 
   // Vehicle type presets (same as admin side)
-  const VEHICLE_PRESETS = [
+  const VEHICLE_PRESETS = useMemo(() => [
     { name: 'Motorcycle', dimensions: { length: 8, width: 4, height: 0 } },
     { name: 'Compact Car', dimensions: { length: 16, width: 8, height: 0 } },
     { name: 'Standard Car', dimensions: { length: 18, width: 9, height: 0 } },
     { name: 'Large Vehicle', dimensions: { length: 20, width: 10, height: 0 } },
     { name: 'Truck/Bus', dimensions: { length: 40, width: 12, height: 0 } },
     { name: 'Custom', dimensions: { length: 0, width: 0, height: 0 } }
-  ];
+  ], []);
 
   // State declarations first
   const [parkingSlots, setParkingSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [userLocation, setUserLocation] = useState({ lat: 11.2733, lng: 77.6070 }); // Default: Erode, Tamil Nadu
-  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [userLocation, setUserLocation] = useState(null); // Default to null
+  const [showUnavailable, setShowUnavailable] = useState(true);
   const [filters, setFilters] = useState({
     searchRadius: 1000,
     maxPrice: 500,
@@ -72,11 +72,15 @@ const FindParking = () => {
     try {
       setLoading(true);
       const endpoint = showUnavailable ? '/all' : '';
-      const response = await parkingAPI.getAll(endpoint, {
+      
+      // If user location is not available, fetch all slots without location constraints
+      const params = userLocation ? {
         lat: userLocation.lat,
         lng: userLocation.lng,
         radius: filters.searchRadius,
-      });
+      } : {};
+
+      const response = await parkingAPI.getAll(endpoint, params);
       
       // Transform parking slots to have latitude and longitude properties
       let transformedSlots = response.data.map(slot => ({
@@ -162,7 +166,7 @@ const FindParking = () => {
     } finally {
       setLoading(false);
     }
-  }, [userLocation, filters, showUnavailable]);
+  }, [userLocation, filters, showUnavailable, VEHICLE_PRESETS]);
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -175,12 +179,19 @@ const FindParking = () => {
         },
         (error) => {
           console.error('Error getting location:', error);
-          alert('Unable to retrieve your location. Please make sure location services are enabled.');
+          if (error.code === error.PERMISSION_DENIED) {
+            alert('Location access denied. The map will be centered on available parking spots.');
+          } else {
+            alert('Unable to retrieve your location. Please ensure location services are enabled.');
+          }
+          // Set a default location if user denies, so the app can still function
+          setUserLocation({ lat: 11.2733, lng: 77.6070 });
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       alert('Geolocation is not supported by your browser.');
+      setUserLocation({ lat: 11.2733, lng: 77.6070 });
     }
   };
 
